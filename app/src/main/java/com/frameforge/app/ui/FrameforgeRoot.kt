@@ -1,0 +1,216 @@
+package com.frameforge.app.ui
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.frameforge.app.data.ProjectEntity
+import com.frameforge.app.data.ProjectRepository
+import com.frameforge.app.ui.theme.*
+import kotlinx.coroutines.launch
+
+private enum class Tab(val label: String, val icon: ImageVector) {
+    Home("Home", Icons.Default.Home), Projects("Projects", Icons.Default.FolderOpen),
+    Video("Video", Icons.Default.Movie), Photo("Photo", Icons.Default.Photo),
+    AI("AI Studio", Icons.Default.AutoAwesome), Library("Library", Icons.Default.Collections),
+    Settings("Settings", Icons.Default.Settings)
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FrameforgeRoot(repository: ProjectRepository) {
+    var tab by remember { mutableStateOf(Tab.Home) }
+    var createDialog by remember { mutableStateOf(false) }
+    var projectName by remember { mutableStateOf("") }
+    var projectType by remember { mutableStateOf("Video") }
+    var ratio by remember { mutableStateOf("9:16") }
+    var importedCount by remember { mutableIntStateOf(0) }
+    val projects by repository.projects.collectAsStateWithLifecycle(initialValue = emptyList())
+    val scope = rememberCoroutineScope()
+    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        importedCount += uris.size
+    }
+    Scaffold(
+        containerColor = Canvas,
+        topBar = { TopAppBar(title = { Column {
+            Text("FRAMEFORGE", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
+            Text("Create without limits", color = Muted, style = MaterialTheme.typography.labelSmall)
+        } }, actions = { IconButton(onClick = { tab = Tab.Settings }) { Icon(Icons.Default.Settings, "Settings") } },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Canvas)) },
+        bottomBar = { NavigationBar(containerColor = SurfaceWhite) {
+            listOf(Tab.Home, Tab.Projects, Tab.Video, Tab.Photo, Tab.AI).forEach { item ->
+                NavigationBarItem(selected = tab == item, onClick = { tab = item },
+                    icon = { Icon(item.icon, item.label) }, label = { Text(item.label, maxLines = 1) })
+            }
+        } },
+        floatingActionButton = { if (tab == Tab.Home || tab == Tab.Projects) FloatingActionButton(
+            onClick = { createDialog = true }, containerColor = Accent, contentColor = SurfaceWhite
+        ) { Icon(Icons.Default.Add, "Create project") } }
+    ) { inset ->
+        when (tab) {
+            Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { tab = Tab.Video })
+            Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true })
+            Tab.Video -> StudioScreen("Video Studio", "Your video workspace", Icons.Default.Movie, Modifier.padding(inset),
+                "Import video clips to begin. The editing engine is scheduled for Phase 2.", { mediaPicker.launch(arrayOf("video/*")) })
+            Tab.Photo -> StudioScreen("Photo Studio", "Your photo workspace", Icons.Default.Photo, Modifier.padding(inset),
+                "Import photos to begin. Non-destructive photo tools are scheduled for Phase 2.", { mediaPicker.launch(arrayOf("image/*")) })
+            Tab.AI -> StudioScreen("AI Studio", "AI edits always require your approval", Icons.Default.AutoAwesome, Modifier.padding(inset),
+                "AI tools are not active yet. No media is uploaded or modified in this foundation build.", null)
+            Tab.Library -> StudioScreen("Media Library", "Your selected media", Icons.Default.Collections, Modifier.padding(inset),
+                "$importedCount item(s) selected this session. Persistent media indexing is planned for Phase 1 follow-up.", { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) })
+            Tab.Settings -> StudioScreen("Settings", "Workspace, editing, storage, AI and privacy", Icons.Default.Settings, Modifier.padding(inset),
+                "Local-first foundation. Cloud sync and advanced preferences are planned for later phases.", null)
+        }
+    }
+    if (createDialog) {
+        AlertDialog(
+            onDismissRequest = { createDialog = false },
+            title = { Text("Create a project") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(projectName, { projectName = it }, label = { Text("Project name") }, singleLine = true)
+                Text("Project type", fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = projectType == "Video", onClick = { projectType = "Video" }, label = { Text("Video") })
+                    FilterChip(selected = projectType == "Photo", onClick = { projectType = "Photo" }, label = { Text("Photo") })
+                }
+                Text("Aspect ratio", fontWeight = FontWeight.SemiBold)
+                var expanded by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedButton(onClick = { expanded = true }) { Text(ratio); Icon(Icons.Default.ArrowDropDown, null) }
+                    DropdownMenu(expanded, { expanded = false }) {
+                        listOf("9:16", "16:9", "1:1", "4:5", "Custom").forEach { choice ->
+                            DropdownMenuItem(text = { Text(choice) }, onClick = { ratio = choice; expanded = false })
+                        }
+                    }
+                }
+            } },
+            confirmButton = { TextButton(onClick = {
+                scope.launch { repository.create(projectName, projectType, ratio) }
+                projectName = ""; createDialog = false
+            }) { Text("Create") } },
+            dismissButton = { TextButton(onClick = { createDialog = false }) { Text("Cancel") } }
+        )
+    }
+}
+@Composable
+private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create: () -> Unit, openVideo: () -> Unit) {
+    Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        Surface(shape = RoundedCornerShape(26.dp), color = Ink) {
+            Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("YOUR CREATIVE SPACE", color = AccentSoft, style = MaterialTheme.typography.labelMedium)
+                Text("Make every frame\nfeel intentional.", color = SurfaceWhite,
+                    style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Photo and video editing, together.", color = SurfaceWhite.copy(alpha = .72f))
+                Button(onClick = create, colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+                    Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("New project")
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Recent projects", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("${projects.size} projects", color = Muted)
+        }
+        if (projects.isEmpty()) EmptyState("Your next great edit starts here", "Create a project to see it here.", create)
+        else projects.take(4).forEach { ProjectCard(it) {} }
+        Text("Quick studios", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            QuickTile("Video", Icons.Default.Movie, Modifier.weight(1f), openVideo)
+            QuickTile("Photo", Icons.Default.Photo, Modifier.weight(1f), openVideo)
+            QuickTile("AI", Icons.Default.AutoAwesome, Modifier.weight(1f), openVideo)
+        }
+    }
+}
+@Composable
+private fun ProjectsScreen(projects: List<ProjectEntity>, repository: ProjectRepository, modifier: Modifier, create: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var deleting by remember { mutableStateOf<ProjectEntity?>(null) }
+    val scope = rememberCoroutineScope()
+    Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Your projects", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(),
+            placeholder = { Text("Search projects") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true)
+        val filtered = projects.filter { it.name.contains(query, ignoreCase = true) }
+        if (filtered.isEmpty()) EmptyState("No matching projects", "Create a photo or video project to get started.", create)
+        else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(filtered, key = { it.id }) { project -> ProjectCard(project) { deleting = project } }
+        }
+    }
+    deleting?.let { project ->
+        AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Delete project?") },
+            text = { Text("Only the project record is removed. Original media files are never deleted.") },
+            confirmButton = { TextButton(onClick = { scope.launch { repository.delete(project.id) }; deleting = null }) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } })
+    }
+}
+@Composable
+private fun ProjectCard(project: ProjectEntity, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+        Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(Modifier.size(52.dp), shape = RoundedCornerShape(14.dp), color = AccentSoft) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(if (project.type == "Photo") Icons.Default.Photo else Icons.Default.Movie, null, tint = Accent)
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(project.name, fontWeight = FontWeight.SemiBold)
+                Text("${project.type} • ${project.aspectRatio}", color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = Muted)
+        }
+    }
+}
+@Composable
+private fun StudioScreen(title: String, subtitle: String, icon: ImageVector, modifier: Modifier,
+                         details: String, action: (() -> Unit)?) {
+    Column(modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Surface(Modifier.size(64.dp), shape = RoundedCornerShape(20.dp), color = AccentSoft) {
+            Box(contentAlignment = Alignment.Center) { Icon(icon, null, tint = Accent, modifier = Modifier.size(30.dp)) }
+        }
+        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(subtitle, color = Muted)
+        Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Foundation workspace", fontWeight = FontWeight.SemiBold)
+                Text(details, color = Muted)
+                if (action != null) OutlinedButton(onClick = action) {
+                    Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Choose media")
+                }
+            }
+        }
+    }
+}
+@Composable
+private fun EmptyState(title: String, subtitle: String, create: () -> Unit) {
+    Surface(shape = RoundedCornerShape(20.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+        Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Default.FolderOpen, null, tint = Accent, modifier = Modifier.size(32.dp))
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = Muted)
+            TextButton(onClick = create) { Text("Create project") }
+        }
+    }
+}
+@Composable
+private fun QuickTile(label: String, icon: ImageVector, modifier: Modifier, open: () -> Unit) {
+    Surface(onClick = open, modifier = modifier, shape = RoundedCornerShape(16.dp), color = SurfaceWhite,
+        border = BorderStroke(1.dp, Line)) {
+        Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, null, tint = Accent)
+            Text(label, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
