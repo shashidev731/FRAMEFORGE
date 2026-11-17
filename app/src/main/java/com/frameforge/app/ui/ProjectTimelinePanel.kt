@@ -1,6 +1,7 @@
 package com.frameforge.app.ui
 
 import android.net.Uri
+import android.media.MediaMetadataRetriever
 import android.widget.ImageView
 import android.widget.VideoView
 import android.widget.MediaController
@@ -32,6 +33,8 @@ import com.frameforge.app.data.TimelineClipEntity
 import com.frameforge.app.data.TimelineRepository
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository: TimelineRepository) {
@@ -64,7 +67,10 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             } },
                             onClick = {
                                 addMenu = false
-                                scope.launch { repository.add(projectId, item.uri, item.displayName, item.mimeType) }
+                                scope.launch {
+                                    val duration = withContext(Dispatchers.IO) { readTimelineMediaDuration(context, item.uri, item.mimeType) }
+                                    repository.add(projectId, item.uri, item.displayName, item.mimeType, duration)
+                                }
                             }
                         )
                     }
@@ -103,6 +109,19 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                     } else {
                         Text("Audio clip selected. Audio playback and waveform controls are not connected yet.", color = SurfaceWhite.copy(alpha = .75f))
                     }
+                    val clipEnd = selectedClip.trimEndMs ?: selectedClip.durationMs
+                    Text("Segment: " + formatTimelineDuration(selectedClip.trimStartMs) + " – " + formatTimelineDuration(clipEnd), color = SurfaceWhite.copy(alpha = .75f), style = MaterialTheme.typography.labelSmall)
+                    OutlinedButton(
+                        onClick = {
+                            val midpoint = selectedClip.trimStartMs + (clipEnd - selectedClip.trimStartMs) / 2L
+                            scope.launch { repository.splitAt(selectedClip.clipId, midpoint) }
+                        },
+                        enabled = clipEnd - selectedClip.trimStartMs > 1000L
+                    ) {
+                        Icon(Icons.Default.ContentCut, null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Split selected clip at midpoint")
+                    }
                 }
             }
         }
@@ -135,7 +154,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             }
         }
         Text(
-            "Clips are saved per project and can be reordered or removed without changing original files. Playback, trimming, split, multi-track compositing and timeline export are not connected yet.",
+            "Clips are saved per project. You can preview image/video clips, reorder them, and split a source into two non-destructive timeline segments. Multi-track compositing and final timeline rendering are not connected yet.",
             color = Muted, style = MaterialTheme.typography.bodySmall
         )
     }
@@ -169,4 +188,23 @@ private fun TimelineClipRow(
             IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, "Remove from timeline", tint = Muted) }
         }
     }
+}
+
+
+private fun readTimelineMediaDuration(context: android.content.Context, uriText: String, mimeType: String): Long {
+    if (mimeType.startsWith("image/")) return 5000L
+    val retriever = MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(context, Uri.parse(uriText))
+        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.coerceAtLeast(1L) ?: 5000L
+    } catch (_: Exception) {
+        5000L
+    } finally {
+        runCatching { retriever.release() }
+    }
+}
+
+private fun formatTimelineDuration(milliseconds: Long): String {
+    val seconds = (milliseconds.coerceAtLeast(0L) / 1000L).toInt()
+    return "%02d:%02d".format(seconds / 60, seconds % 60)
 }
