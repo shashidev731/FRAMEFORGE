@@ -28,6 +28,7 @@ Android-first photo and video editor for social creators and influencers.
 - Open a photo using Android's document picker
 - Live preview of center-crop presets, exposure, saturation and 90-degree rotation
 - Reset adjustments
+- Toggle original-versus-edited comparison
 - Export a new JPEG copy through Android's save-document picker
 - Original source file is never overwritten
 - Editing input is downsampled to a maximum 3072 px on the longest edge for phone memory safety
