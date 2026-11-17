@@ -18,5 +18,6 @@ data class TimelineClipEntity(
     val position: Int,
     val trimStartMs: Long = 0L,
     val trimEndMs: Long? = null,
+    val durationMs: Long = 0L,
     val createdAt: Long
 )
