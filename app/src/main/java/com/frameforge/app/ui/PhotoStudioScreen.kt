@@ -42,6 +42,9 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
     var sourceName by remember { mutableStateOf("") }
     var exposure by remember { mutableFloatStateOf(0f) }
     var saturation by remember { mutableFloatStateOf(1f) }
+    var contrast by remember { mutableFloatStateOf(1f) }
+    var warmth by remember { mutableFloatStateOf(0f) }
+    var overlayText by remember { mutableStateOf("") }
     var rotation by remember { mutableIntStateOf(0) }
     var cropRatio by remember { mutableStateOf("Original") }
     var isProcessing by remember { mutableStateOf(false) }
@@ -62,6 +65,9 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
                 sourceName = uri.lastPathSegment?.substringAfterLast('/')?.take(70) ?: "Selected photo"
                 exposure = 0f
                 saturation = 1f
+                contrast = 1f
+                warmth = 0f
+                overlayText = ""
                 rotation = 0
                 cropRatio = "Original"
                 status = if (decoded == null) "This image could not be opened." else "Original loaded. Adjust the controls; the source file stays unchanged."
@@ -87,12 +93,12 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    LaunchedEffect(sourceBitmap, exposure, saturation, rotation, cropRatio) {
+    LaunchedEffect(sourceBitmap, exposure, saturation, contrast, warmth, overlayText, rotation, cropRatio) {
         val source = sourceBitmap ?: run { previewBitmap = null; return@LaunchedEffect }
         isProcessing = true
         delay(120)
         val result = withContext(Dispatchers.Default) {
-            runCatching { renderPhotoEdit(source, exposure, saturation, rotation, cropRatio) }.getOrNull()
+            runCatching { renderPhotoEdit(source, exposure, saturation, contrast, warmth, overlayText, rotation, cropRatio) }.getOrNull()
         }
         previewBitmap = result
         isProcessing = false
@@ -134,6 +140,17 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
                     Slider(value = exposure, onValueChange = { exposure = it }, valueRange = -2f..2f)
                     Text("Saturation  •  ${"%.1f".format(saturation)}×", fontWeight = FontWeight.Medium)
                     Slider(value = saturation, onValueChange = { saturation = it }, valueRange = 0f..2f)
+                    Text("Contrast  •  ${"%.1f".format(contrast)}×", fontWeight = FontWeight.Medium)
+                    Slider(value = contrast, onValueChange = { contrast = it }, valueRange = 0.5f..1.5f)
+                    Text("Warmth  •  ${"%.1f".format(warmth)}", fontWeight = FontWeight.Medium)
+                    Slider(value = warmth, onValueChange = { warmth = it }, valueRange = -1f..1f)
+                    OutlinedTextField(
+                        value = overlayText,
+                        onValueChange = { overlayText = it.take(80) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Text overlay (optional)") },
+                        singleLine = true
+                    )
                     Text("Crop ratio", fontWeight = FontWeight.Medium)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf("Original", "1:1", "4:5", "9:16").forEach { ratio ->
@@ -148,7 +165,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
                         OutlinedButton(onClick = { rotation = (rotation + 90) % 360 }) {
                             Icon(Icons.Default.RotateRight, null); Text("Right")
                         }
-                        TextButton(onClick = { exposure = 0f; saturation = 1f; rotation = 0; cropRatio = "Original" }) {
+                        TextButton(onClick = { exposure = 0f; saturation = 1f; contrast = 1f; warmth = 0f; overlayText = ""; rotation = 0; cropRatio = "Original" }) {
                             Text("Reset")
                         }
                     }
@@ -190,6 +207,9 @@ private fun renderPhotoEdit(
     source: Bitmap,
     exposure: Float,
     saturation: Float,
+    contrast: Float,
+    warmth: Float,
+    overlayText: String,
     rotation: Int,
     cropRatio: String
 ): Bitmap {
@@ -214,12 +234,14 @@ private fun renderPhotoEdit(
     val cropped = Bitmap.createBitmap(source, left, top, cropWidth, cropHeight)
 
     val brightness = Math.pow(2.0, exposure.toDouble()).toFloat()
+    val factor = brightness * contrast
+    val contrastOffset = 128f * (1f - contrast)
     val color = ColorMatrix().apply {
         setSaturation(saturation)
         postConcat(ColorMatrix(floatArrayOf(
-            brightness, 0f, 0f, 0f, 0f,
-            0f, brightness, 0f, 0f, 0f,
-            0f, 0f, brightness, 0f, 0f,
+            factor, 0f, 0f, 0f, contrastOffset + warmth * 24f,
+            0f, factor, 0f, 0f, contrastOffset,
+            0f, 0f, factor, 0f, contrastOffset - warmth * 24f,
             0f, 0f, 0f, 1f, 0f
         )))
     }
@@ -227,7 +249,18 @@ private fun renderPhotoEdit(
     Canvas(adjusted).drawBitmap(cropped, 0f, 0f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
         colorFilter = ColorMatrixColorFilter(color)
     })
-    if (rotation % 360 == 0) return adjusted
-    val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-    return Bitmap.createBitmap(adjusted, 0, 0, adjusted.width, adjusted.height, matrix, true)
+    val rotated = if (rotation % 360 == 0) adjusted else {
+        val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+        Bitmap.createBitmap(adjusted, 0, 0, adjusted.width, adjusted.height, matrix, true)
+    }
+    if (overlayText.isBlank()) return rotated
+    val output = rotated.copy(Bitmap.Config.ARGB_8888, true)
+    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = (output.width.coerceAtMost(output.height) * 0.065f).coerceAtLeast(28f)
+        setShadowLayer(5f, 2f, 2f, android.graphics.Color.BLACK)
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+    }
+    Canvas(output).drawText(overlayText, output.width * 0.05f, output.height * 0.9f, textPaint)
+    return output
 }
