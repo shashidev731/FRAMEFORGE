@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
+import java.util.UUID
 
 @Dao
 interface TimelineClipDao {
@@ -44,6 +45,29 @@ interface TimelineClipDao {
 
     @Query("UPDATE timeline_clips SET position = :position WHERE clipId = :clipId")
     suspend fun setPosition(clipId: String, position: Int)
+
+    @Query("UPDATE timeline_clips SET trimEndMs = :endMs WHERE clipId = :clipId")
+    suspend fun setTrimEnd(clipId: String, endMs: Long)
+
+    @Transaction
+    suspend fun splitAt(clipId: String, splitAtMs: Long): Boolean {
+        val current = find(clipId) ?: return false
+        val end = current.trimEndMs ?: current.durationMs
+        if (current.durationMs <= 0L || splitAtMs <= current.trimStartMs || splitAtMs >= end) return false
+        val track = clipsInTrack(current.projectId, current.trackIndex)
+        val second = current.copy(clipId = UUID.randomUUID().toString(), position = Int.MIN_VALUE, trimStartMs = splitAtMs, trimEndMs = end)
+        moveTrackToTemporaryPositions(current.projectId, current.trackIndex)
+        setTrimEnd(current.clipId, splitAtMs)
+        insert(second)
+        val ordered = buildList {
+            track.forEach { item ->
+                add(item)
+                if (item.clipId == current.clipId) add(second)
+            }
+        }
+        ordered.forEachIndexed { index, item -> setPosition(item.clipId, index) }
+        return true
+    }
 
     @Transaction
     suspend fun move(clipId: String, direction: Int) {
