@@ -9,6 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.frameforge.app.data.FrameforgeDatabase
 import com.frameforge.app.data.ProjectRepository
 import com.frameforge.app.data.MediaRepository
+import com.frameforge.app.data.EditHistoryRepository
 import com.frameforge.app.ui.FrameforgeRoot
 import com.frameforge.app.ui.theme.FrameforgeTheme
 
@@ -35,7 +36,7 @@ class MainActivity : ComponentActivity() {
             .build()
         setContent {
             FrameforgeTheme {
-                FrameforgeRoot(ProjectRepository(db.projectDao()), MediaRepository(db.mediaDao()))
+                FrameforgeRoot(ProjectRepository(db.projectDao()), MediaRepository(db.mediaDao()), EditHistoryRepository(db.editOperationDao()))
             }
         }
     }
