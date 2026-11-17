@@ -2,6 +2,7 @@ package com.frameforge.app.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +26,12 @@ import com.frameforge.app.data.MediaEntity
 import com.frameforge.app.data.MediaRepository
 import com.frameforge.app.data.EditHistoryRepository
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import android.provider.OpenableColumns
+import android.net.Uri
+import android.widget.ImageView
+import android.widget.VideoView
+import android.widget.MediaController
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -391,6 +398,7 @@ private fun MediaLibraryScreen(
     importMedia: () -> Unit,
     removeMedia: (String) -> Unit
 ) {
+    var previewItem by remember { mutableStateOf<MediaEntity?>(null) }
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Media Library", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("Your selected media stays on your device. Original files are not copied, changed or deleted.", color = Muted)
@@ -405,7 +413,7 @@ private fun MediaLibraryScreen(
             Text("${media.size} saved item(s)", color = Muted)
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(media, key = { it.uri }) { item ->
-                    Surface(shape = RoundedCornerShape(14.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+                    Surface(onClick = { previewItem = item }, shape = RoundedCornerShape(14.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
                         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 when {
@@ -425,6 +433,50 @@ private fun MediaLibraryScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+    previewItem?.let { item ->
+        MediaPreviewDialog(item = item, onDismiss = { previewItem = null })
+    }
+}
+
+@Composable
+private fun MediaPreviewDialog(item: MediaEntity, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(22.dp), color = SurfaceWhite) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(item.displayName, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close preview") }
+                }
+                when {
+                    item.mimeType.startsWith("image/") -> AndroidView(
+                        factory = { viewContext ->
+                            ImageView(viewContext).apply {
+                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                setImageURI(Uri.parse(item.uri))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 420.dp)
+                    )
+                    item.mimeType.startsWith("video/") -> AndroidView(
+                        factory = { viewContext ->
+                            VideoView(viewContext).apply {
+                                val controller = MediaController(viewContext)
+                                controller.setAnchorView(this)
+                                setMediaController(controller)
+                                setVideoURI(Uri.parse(item.uri))
+                                setOnPreparedListener { player -> player.isLooping = false }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(240.dp),
+                        onRelease = { it.stopPlayback() }
+                    )
+                    else -> Text("Audio playback preview will be added in the Audio Studio.", color = Muted)
+                }
+                Text(item.mimeType, color = Muted, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
