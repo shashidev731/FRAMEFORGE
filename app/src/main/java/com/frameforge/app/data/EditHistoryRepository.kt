@@ -14,17 +14,12 @@ class EditHistoryRepository(private val dao: EditOperationDao) {
     suspend fun record(projectId: String, type: String, payload: String) {
         require(projectId.isNotBlank()) { "A project is required" }
         require(type.isNotBlank()) { "An operation type is required" }
-        val sequence = dao.nextSequence(projectId)
-        dao.discardRedoBranch(projectId)
-        dao.insert(
-            EditOperationEntity(
-                operationId = UUID.randomUUID().toString(),
-                projectId = projectId,
-                sequence = sequence,
-                operationType = type,
-                payload = payload,
-                createdAt = System.currentTimeMillis()
-            )
+        dao.appendOperation(
+            projectId = projectId,
+            type = type,
+            payload = payload,
+            operationId = UUID.randomUUID().toString(),
+            createdAt = System.currentTimeMillis()
         )
     }
 
