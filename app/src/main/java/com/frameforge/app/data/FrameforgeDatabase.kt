@@ -8,4 +8,5 @@ abstract class FrameforgeDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
     abstract fun mediaDao(): MediaDao
     abstract fun editOperationDao(): EditOperationDao
+    abstract fun timelineClipDao(): TimelineClipDao
 }
