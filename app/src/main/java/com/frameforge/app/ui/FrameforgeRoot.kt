@@ -39,12 +39,12 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     var projectType by remember { mutableStateOf("Video") }
     var ratio by remember { mutableStateOf("9:16") }
     var importedCount by remember { mutableIntStateOf(0) }
-    val preferences = remember { contextPreferences(LocalContext.current) }
+    val context = LocalContext.current
+    val preferences = remember(context) { contextPreferences(context) }
     var workspaceMode by remember { mutableStateOf(preferences.getString("workspace_mode", "Simple") ?: "Simple") }
     var showOnboarding by remember { mutableStateOf(!preferences.getBoolean("onboarding_complete", false)) }
     val projects by repository.projects.collectAsStateWithLifecycle(initialValue = emptyList())
     val media by mediaRepository.media.collectAsStateWithLifecycle(initialValue = emptyList())
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         importedCount += uris.size
