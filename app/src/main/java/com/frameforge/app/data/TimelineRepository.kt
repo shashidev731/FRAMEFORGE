@@ -23,7 +23,7 @@ class TimelineRepository(private val dao: TimelineClipDao) {
         )
     }
 
-    suspend fun remove(clipId: String) = dao.delete(clipId)
+    suspend fun remove(clipId: String) = dao.removeAndCompact(clipId)
     suspend fun moveEarlier(clipId: String) = dao.move(clipId, -1)
     suspend fun moveLater(clipId: String) = dao.move(clipId, 1)
 }
