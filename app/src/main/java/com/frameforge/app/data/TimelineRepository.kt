@@ -18,7 +18,7 @@ class TimelineRepository(private val dao: TimelineClipDao) {
                 mimeType = mimeType,
                 trackIndex = track,
                 position = dao.nextPosition(projectId, track),
-                durationMs = durationMs.coerceAtLeast(1L),
+                durationMs = durationMs.coerceAtLeast(0L),
                 createdAt = System.currentTimeMillis()
             )
         )
