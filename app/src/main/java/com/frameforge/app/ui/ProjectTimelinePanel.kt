@@ -1,5 +1,12 @@
 package com.frameforge.app.ui
 
+import android.net.Uri
+import android.widget.ImageView
+import android.widget.VideoView
+import android.widget.MediaController
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,7 +37,10 @@ import kotlinx.coroutines.launch
 fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository: TimelineRepository) {
     val clips by repository.clips(projectId).collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var selectedClipId by remember(projectId) { mutableStateOf<String?>(null) }
     var addMenu by remember { mutableStateOf(false) }
+    val selectedClip = clips.firstOrNull { it.clipId == selectedClipId }
     val available = media.filter { item -> clips.none { it.mediaUri == item.uri } }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -61,6 +71,41 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                 }
             }
         }
+        if (selectedClip != null) {
+            Surface(shape = RoundedCornerShape(16.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
+                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Selected clip: " + selectedClip.displayName, color = SurfaceWhite, maxLines = 1, fontWeight = FontWeight.SemiBold)
+                    if (selectedClip.mimeType.startsWith("video/")) {
+                        key(selectedClip.clipId) {
+                            AndroidView(
+                                factory = { viewContext ->
+                                    VideoView(viewContext).apply {
+                                        val controller = MediaController(viewContext)
+                                        controller.setAnchorView(this)
+                                        setMediaController(controller)
+                                        setVideoURI(Uri.parse(selectedClip.mediaUri))
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(210.dp),
+                                onRelease = { it.stopPlayback() }
+                            )
+                        }
+                    } else if (selectedClip.mimeType.startsWith("image/")) {
+                        AndroidView(
+                            factory = { viewContext ->
+                                ImageView(viewContext).apply {
+                                    scaleType = ImageView.ScaleType.FIT_CENTER
+                                    setImageURI(Uri.parse(selectedClip.mediaUri))
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(210.dp)
+                        )
+                    } else {
+                        Text("Audio clip selected. Audio playback and waveform controls are not connected yet.", color = SurfaceWhite.copy(alpha = .75f))
+                    }
+                }
+            }
+        }
         Surface(shape = RoundedCornerShape(16.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
             if (clips.isEmpty()) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
@@ -78,7 +123,9 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                     verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     itemsIndexed(clips, key = { _, clip -> clip.clipId }) { index, clip ->
                         TimelineClipRow(
-                            clip = clip, index = index, canMoveUp = index > 0, canMoveDown = index < clips.lastIndex,
+                            clip = clip, index = index, selected = selectedClipId == clip.clipId,
+                            canMoveUp = index > 0, canMoveDown = index < clips.lastIndex,
+                            onSelect = { selectedClipId = clip.clipId },
                             onMoveUp = { scope.launch { repository.moveEarlier(clip.clipId) } },
                             onMoveDown = { scope.launch { repository.moveLater(clip.clipId) } },
                             onRemove = { scope.launch { repository.remove(clip.clipId) } }
@@ -96,10 +143,12 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
 
 @Composable
 private fun TimelineClipRow(
-    clip: TimelineClipEntity, index: Int, canMoveUp: Boolean, canMoveDown: Boolean,
-    onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit
+    clip: TimelineClipEntity, index: Int, selected: Boolean, canMoveUp: Boolean, canMoveDown: Boolean,
+    onSelect: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit
 ) {
-    Surface(shape = RoundedCornerShape(12.dp), color = Canvas, border = BorderStroke(1.dp, Line)) {
+    Surface(shape = RoundedCornerShape(12.dp), color = if (selected) SurfaceWhite else Canvas,
+        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Accent else Line),
+        modifier = Modifier.clickable(onClick = onSelect)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${index + 1}", color = Accent, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(9.dp))
