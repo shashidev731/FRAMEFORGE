@@ -25,11 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
@@ -56,7 +56,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
             scope.launch {
                 isProcessing = true
                 val decoded = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                    decodePhotoForEditing(context, uri)
                 }
                 sourceBitmap = decoded
                 sourceName = uri.lastPathSegment?.substringAfterLast('/')?.take(70) ?: "Selected photo"
@@ -90,6 +90,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(sourceBitmap, exposure, saturation, rotation, cropRatio) {
         val source = sourceBitmap ?: run { previewBitmap = null; return@LaunchedEffect }
         isProcessing = true
+        delay(120)
         val result = withContext(Dispatchers.Default) {
             runCatching { renderPhotoEdit(source, exposure, saturation, rotation, cropRatio) }.getOrNull()
         }
@@ -167,9 +168,22 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
             }
         }
         Text(status, color = Muted, style = MaterialTheme.typography.bodySmall)
-        Text("Export creates a new JPEG copy. The imported original is never overwritten.", color = Muted,
-            style = MaterialTheme.typography.labelSmall)
+        Text("Export creates a new JPEG copy. The imported original is never overwritten. For phone memory safety, editing is capped to 3072 px on the longest edge.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
+}
+
+private fun decodePhotoForEditing(context: android.content.Context, uri: Uri): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sample = 1
+    while (bounds.outWidth / sample > 3072 || bounds.outHeight / sample > 3072) sample *= 2
+    val options = BitmapFactory.Options().apply {
+        inSampleSize = sample
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+    }
+    return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
 }
 
 private fun renderPhotoEdit(
