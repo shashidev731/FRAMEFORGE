@@ -399,20 +399,47 @@ private fun MediaLibraryScreen(
     removeMedia: (String) -> Unit
 ) {
     var previewItem by remember { mutableStateOf<MediaEntity?>(null) }
+    var mediaQuery by remember { mutableStateOf("") }
+    var mediaFilter by remember { mutableStateOf("All") }
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Media Library", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("Your selected media stays on your device. Original files are not copied, changed or deleted.", color = Muted)
+        OutlinedTextField(
+            value = mediaQuery,
+            onValueChange = { mediaQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Search your media") },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            singleLine = true
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("All", "Photos", "Videos", "Audio").forEach { filter ->
+                FilterChip(selected = mediaFilter == filter, onClick = { mediaFilter = filter }, label = { Text(filter) })
+            }
+        }
         Button(onClick = importMedia) {
             Icon(Icons.Default.Add, null)
             Spacer(Modifier.width(8.dp))
             Text("Import photos, videos or audio")
         }
+        val filteredMedia = media.filter { item ->
+            val matchesQuery = item.displayName.contains(mediaQuery, ignoreCase = true)
+            val matchesType = when (mediaFilter) {
+                "Photos" -> item.mimeType.startsWith("image/")
+                "Videos" -> item.mimeType.startsWith("video/")
+                "Audio" -> item.mimeType.startsWith("audio/")
+                else -> true
+            }
+            matchesQuery && matchesType
+        }.sortedBy { it.displayName.lowercase() }
         if (media.isEmpty()) {
             EmptyState("Your library is empty", "Import media to keep a persistent reference in this library.", importMedia)
+        } else if (filteredMedia.isEmpty()) {
+            EmptyState("No matching media", "Try another search or media type.", importMedia)
         } else {
-            Text("${media.size} saved item(s)", color = Muted)
+            Text("${filteredMedia.size} of ${media.size} saved item(s)", color = Muted)
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(media, key = { it.uri }) { item ->
+                items(filteredMedia, key = { it.uri }) { item ->
                     Surface(onClick = { previewItem = item }, shape = RoundedCornerShape(14.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
                         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -443,7 +470,6 @@ private fun MediaLibraryScreen(
 
 @Composable
 private fun MediaPreviewDialog(item: MediaEntity, onDismiss: () -> Unit) {
-    val context = LocalContext.current
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(22.dp), color = SurfaceWhite) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
