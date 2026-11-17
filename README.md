@@ -73,7 +73,7 @@ AI and cloud features are not active. The current app does not upload media to a
 From the repository root:
 
 ```bash
-./gradlew :app:assembleDebug
+gradle :app:assembleDebug
 ```
 
 Debug APK output:
