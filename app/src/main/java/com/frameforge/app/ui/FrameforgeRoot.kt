@@ -34,6 +34,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 @Composable
 fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaRepository) {
     var tab by remember { mutableStateOf(Tab.Home) }
+    var selectedProject by remember { mutableStateOf<ProjectEntity?>(null) }
     var createDialog by remember { mutableStateOf(false) }
     var projectName by remember { mutableStateOf("") }
     var projectType by remember { mutableStateOf("Video") }
@@ -57,24 +58,30 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     }
     Scaffold(
         containerColor = Canvas,
-        topBar = { TopAppBar(title = { Column {
-            Text("FRAMEFORGE", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
-            Text("Create without limits", color = Muted, style = MaterialTheme.typography.labelSmall)
-        } }, actions = { IconButton(onClick = { tab = Tab.Settings }) { Icon(Icons.Default.Settings, "Settings") } },
+        topBar = { TopAppBar(navigationIcon = { if (selectedProject != null) IconButton(onClick = { selectedProject = null }) { Icon(Icons.Default.ArrowBack, "Back to projects") } }, title = { Column {
+            Text(selectedProject?.name ?: "FRAMEFORGE", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
+            Text(if (selectedProject != null) "Project workspace" else "Create without limits", color = Muted, style = MaterialTheme.typography.labelSmall)
+        } }, actions = { if (selectedProject == null) IconButton(onClick = { tab = Tab.Settings }) { Icon(Icons.Default.Settings, "Settings") } },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Canvas)) },
-        bottomBar = { NavigationBar(containerColor = SurfaceWhite) {
+        bottomBar = { if (selectedProject == null) NavigationBar(containerColor = SurfaceWhite) {
             listOf(Tab.Home, Tab.Projects, Tab.Video, Tab.Photo, Tab.AI, Tab.Library).forEach { item ->
                 NavigationBarItem(selected = tab == item, onClick = { tab = item },
                     icon = { Icon(item.icon, item.label) }, label = { Text(item.label, maxLines = 1) })
             }
         } },
-        floatingActionButton = { if (tab == Tab.Home || tab == Tab.Projects) FloatingActionButton(
+        floatingActionButton = { if (selectedProject == null && (tab == Tab.Home || tab == Tab.Projects)) FloatingActionButton(
             onClick = { createDialog = true }, containerColor = Accent, contentColor = SurfaceWhite
         ) { Icon(Icons.Default.Add, "Create project") } }
     ) { inset ->
-        when (tab) {
-            Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { tab = Tab.Video }, { tab = Tab.Photo }, { tab = Tab.AI })
-            Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true })
+        if (selectedProject != null) {
+            val project = projects.firstOrNull { it.id == selectedProject?.id } ?: selectedProject!!
+            ProjectWorkspaceScreen(project, Modifier.padding(inset), onAspectRatioChange = { newRatio ->
+                scope.launch { repository.updateAspectRatio(project.id, newRatio) }
+                selectedProject = project.copy(aspectRatio = newRatio, updatedAt = System.currentTimeMillis())
+            }, onOpenStudio = { destination -> tab = destination })
+        } else when (tab) {
+            Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { tab = Tab.Video }, { tab = Tab.Photo }, { tab = Tab.AI }, { selectedProject = it })
+            Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true }, { selectedProject = it })
             Tab.Video -> StudioScreen("Video Studio", "Your video workspace", Icons.Default.Movie, Modifier.padding(inset),
                 "Import video clips to begin. The editing engine is scheduled for Phase 2.", { mediaPicker.launch(arrayOf("video/*")) })
             Tab.Photo -> StudioScreen("Photo Studio", "Your photo workspace", Icons.Default.Photo, Modifier.padding(inset),
@@ -162,7 +169,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     }
 }
 @Composable
-private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create: () -> Unit, openVideo: () -> Unit, openPhoto: () -> Unit, openAi: () -> Unit) {
+private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create: () -> Unit, openVideo: () -> Unit, openPhoto: () -> Unit, openAi: () -> Unit, openProject: (ProjectEntity) -> Unit) {
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Surface(shape = RoundedCornerShape(26.dp), color = Ink) {
             Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -180,7 +187,7 @@ private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create
             Text("${projects.size} projects", color = Muted)
         }
         if (projects.isEmpty()) EmptyState("Your next great edit starts here", "Create a project to see it here.", create)
-        else projects.take(4).forEach { ProjectCard(it, onClick = {}) }
+        else projects.take(4).forEach { project -> ProjectCard(project, onClick = { openProject(project) }) }
         Text("Quick studios", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuickTile("Video", Icons.Default.Movie, Modifier.weight(1f), openVideo)
@@ -190,7 +197,7 @@ private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create
     }
 }
 @Composable
-private fun ProjectsScreen(projects: List<ProjectEntity>, repository: ProjectRepository, modifier: Modifier, create: () -> Unit) {
+private fun ProjectsScreen(projects: List<ProjectEntity>, repository: ProjectRepository, modifier: Modifier, create: () -> Unit, openProject: (ProjectEntity) -> Unit) {
     var query by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf<ProjectEntity?>(null) }
     var renaming by remember { mutableStateOf<ProjectEntity?>(null) }
@@ -213,7 +220,7 @@ private fun ProjectsScreen(projects: List<ProjectEntity>, repository: ProjectRep
         if (filtered.isEmpty()) EmptyState("No matching projects", "Create a photo or video project to get started.", create)
         else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(filtered, key = { it.id }) { project ->
-                ProjectCard(project, onClick = {},
+                ProjectCard(project, onClick = { openProject(project) },
                     onDelete = { deleting = project },
                     onRename = { renaming = project; renameText = project.name },
                     onDuplicate = { scope.launch { repository.duplicate(project) } })
@@ -301,6 +308,69 @@ private fun QuickTile(label: String, icon: ImageVector, modifier: Modifier, open
     }
 }
 
+
+
+@Composable
+private fun ProjectWorkspaceScreen(
+    project: ProjectEntity,
+    modifier: Modifier,
+    onAspectRatioChange: (String) -> Unit,
+    onOpenStudio: (Tab) -> Unit
+) {
+    var ratioMenu by remember { mutableStateOf(false) }
+    Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Surface(shape = RoundedCornerShape(22.dp), color = Ink) {
+            Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("PROJECT WORKSPACE", color = AccentSoft, style = MaterialTheme.typography.labelMedium)
+                Text(project.name, color = SurfaceWhite, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("${project.type} project • Updated ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(project.updatedAt))}",
+                    color = SurfaceWhite.copy(alpha = .72f), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Text("Canvas settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Aspect ratio", fontWeight = FontWeight.SemiBold)
+                Box {
+                    OutlinedButton(onClick = { ratioMenu = true }) {
+                        Text(project.aspectRatio)
+                        Icon(Icons.Default.ArrowDropDown, null)
+                    }
+                    DropdownMenu(expanded = ratioMenu, onDismissRequest = { ratioMenu = false }) {
+                        listOf("9:16", "16:9", "1:1", "4:5", "Custom").forEach { option ->
+                            DropdownMenuItem(text = { Text(option) }, onClick = {
+                                ratioMenu = false
+                                onAspectRatioChange(option)
+                            })
+                        }
+                    }
+                }
+                Text("Changing this setting updates the project canvas preference. It does not crop or alter your original media.",
+                    color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Text("Continue editing", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = { onOpenStudio(if (project.type == "Photo") Tab.Photo else Tab.Video) }, modifier = Modifier.weight(1f)) {
+                Icon(if (project.type == "Photo") Icons.Default.Photo else Icons.Default.Movie, null)
+                Spacer(Modifier.width(6.dp))
+                Text(if (project.type == "Photo") "Photo Studio" else "Video Studio")
+            }
+            OutlinedButton(onClick = { onOpenStudio(Tab.AI) }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.AutoAwesome, null)
+                Spacer(Modifier.width(6.dp))
+                Text("AI Studio")
+            }
+        }
+        Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Editing engine status", fontWeight = FontWeight.SemiBold)
+                Text("Project management and canvas preferences are active. Timeline editing, effects and export are being built next; no placeholder action will modify your media.",
+                    color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
 
 @Composable
 private fun MediaLibraryScreen(
