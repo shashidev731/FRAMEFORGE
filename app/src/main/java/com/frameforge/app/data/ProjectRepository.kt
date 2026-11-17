@@ -1,7 +1,7 @@
 package com.frameforge.app.data
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
-class ProjectRepository(private val dao: ProjectDao, private val editHistoryDao: EditOperationDao? = null) {
+class ProjectRepository(private val dao: ProjectDao, private val editHistoryDao: EditOperationDao? = null, private val timelineClipDao: TimelineClipDao? = null) {
     val projects: Flow<List<ProjectEntity>> = dao.observeProjects()
     suspend fun create(name: String, type: String, ratio: String) {
         val cleanName = name.trim().ifBlank { "Untitled ${type.lowercase()} project" }
@@ -10,6 +10,7 @@ class ProjectRepository(private val dao: ProjectDao, private val editHistoryDao:
     }
     suspend fun delete(id: String) {
         editHistoryDao?.deleteForProject(id)
+        timelineClipDao?.deleteForProject(id)
         dao.delete(id)
     }
     suspend fun duplicate(project: ProjectEntity) {
