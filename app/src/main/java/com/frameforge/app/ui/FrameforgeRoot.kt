@@ -3,6 +3,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -327,7 +329,7 @@ private fun ProjectWorkspaceScreen(
     onOpenStudio: (Tab) -> Unit
 ) {
     var ratioMenu by remember { mutableStateOf(false) }
-    Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Surface(shape = RoundedCornerShape(22.dp), color = Ink) {
             Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("PROJECT WORKSPACE", color = AccentSoft, style = MaterialTheme.typography.labelMedium)
@@ -378,6 +380,7 @@ private fun ProjectWorkspaceScreen(
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         }
+        EditorTimelinePanel(project.id, editHistoryRepository)
     }
 }
 
