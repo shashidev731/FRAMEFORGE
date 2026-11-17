@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -28,4 +29,11 @@ interface EditOperationDao {
 
     @Query("SELECT COUNT(*) FROM edit_operations WHERE projectId = :projectId AND isApplied = 1")
     suspend fun appliedCount(projectId: String): Int
+
+    @Transaction
+    suspend fun appendOperation(projectId: String, type: String, payload: String, operationId: String, createdAt: Long) {
+        discardRedoBranch(projectId)
+        val sequence = nextSequence(projectId)
+        insert(EditOperationEntity(operationId, projectId, sequence, type, payload, createdAt))
+    }
 }
