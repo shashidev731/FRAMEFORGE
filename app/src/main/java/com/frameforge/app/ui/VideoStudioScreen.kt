@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import com.frameforge.app.ui.theme.*
+import com.frameforge.app.data.EditHistoryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -34,7 +35,7 @@ import java.io.IOException
 import java.nio.ByteBuffer
 
 @Composable
-fun VideoStudioScreen(modifier: Modifier = Modifier) {
+fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, editHistoryRepository: EditHistoryRepository? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var videoUri by remember { mutableStateOf<Uri?>(null) }
@@ -44,6 +45,7 @@ fun VideoStudioScreen(modifier: Modifier = Modifier) {
     var endSeconds by remember { mutableFloatStateOf(0f) }
     var exporting by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Choose a video to preview and trim.") }
+    var exportSummary by remember { mutableStateOf("") }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -84,6 +86,11 @@ fun VideoStudioScreen(modifier: Modifier = Modifier) {
                     }
                 }
                 exporting = false
+                if (result.isSuccess && projectId != null) {
+                    runCatching {
+                        editHistoryRepository?.record(projectId, "VIDEO_TRIM", exportSummary)
+                    }
+                }
                 status = result.fold(
                     onSuccess = { "Export complete. Your trimmed MP4 is a new file; the original video was not changed." },
                     onFailure = { "Export failed: ${it.message ?: "unsupported video or destination"}. Try another MP4 file." }
@@ -140,7 +147,10 @@ fun VideoStudioScreen(modifier: Modifier = Modifier) {
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
-            Button(onClick = { exporter.launch("FRAMEFORGE_trim_${System.currentTimeMillis()}.mp4") },
+            Button(onClick = {
+                exportSummary = "start=${formatSeconds(startSeconds)}; end=${formatSeconds(endSeconds)}; source=$videoName"
+                exporter.launch("FRAMEFORGE_trim_${System.currentTimeMillis()}.mp4")
+            },
                 enabled = durationSeconds > 0.2f && endSeconds > startSeconds + 0.1f && !exporting,
                 modifier = Modifier.fillMaxWidth()) {
                 if (exporting) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
