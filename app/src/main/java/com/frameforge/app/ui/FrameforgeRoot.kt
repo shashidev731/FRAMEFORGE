@@ -302,14 +302,14 @@ private fun StudioScreen(title: String, subtitle: String, icon: ImageVector, mod
     }
 }
 @Composable
-private fun EmptyState(title: String, subtitle: String, create: () -> Unit) {
+private fun EmptyState(title: String, subtitle: String, create: () -> Unit, actionLabel: String = "Create project") {
     Surface(shape = RoundedCornerShape(20.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
         Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.FolderOpen, null, tint = Accent, modifier = Modifier.size(32.dp))
             Text(title, fontWeight = FontWeight.SemiBold)
             Text(subtitle, color = Muted)
-            TextButton(onClick = create) { Text("Create project") }
+            TextButton(onClick = create) { Text(actionLabel) }
         }
     }
 }
@@ -433,9 +433,9 @@ private fun MediaLibraryScreen(
             matchesQuery && matchesType
         }.sortedBy { it.displayName.lowercase() }
         if (media.isEmpty()) {
-            EmptyState("Your library is empty", "Import media to keep a persistent reference in this library.", importMedia)
+            EmptyState("Your library is empty", "Import media to keep a persistent reference in this library.", importMedia, "Import media")
         } else if (filteredMedia.isEmpty()) {
-            EmptyState("No matching media", "Try another search or media type.", importMedia)
+            EmptyState("No matching media", "Try another search or media type.", importMedia, "Import media")
         } else {
             Text("${filteredMedia.size} of ${media.size} saved item(s)", color = Muted)
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
