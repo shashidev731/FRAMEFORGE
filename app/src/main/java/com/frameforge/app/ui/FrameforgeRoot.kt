@@ -99,8 +99,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
         } else when (tab) {
             Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { tab = Tab.Video }, { tab = Tab.Photo }, { tab = Tab.AI }, { selectedProject = it })
             Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true }, { selectedProject = it })
-            Tab.Video -> StudioScreen("Video Studio", "Your video workspace", Icons.Default.Movie, Modifier.padding(inset),
-                "Import video clips to begin. The editing engine is scheduled for Phase 2.", { mediaPicker.launch(arrayOf("video/*")) })
+            Tab.Video -> VideoStudioScreen(Modifier.padding(inset))
             Tab.Photo -> PhotoStudioScreen(Modifier.padding(inset))
             Tab.AI -> StudioScreen("AI Studio", "AI edits always require your approval", Icons.Default.AutoAwesome, Modifier.padding(inset),
                 "AI tools are not active yet. No media is uploaded or modified in this foundation build.", null)
