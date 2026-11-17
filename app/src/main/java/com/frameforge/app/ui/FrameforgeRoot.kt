@@ -50,6 +50,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     var projectName by remember { mutableStateOf("") }
     var projectType by remember { mutableStateOf("Video") }
     var ratio by remember { mutableStateOf("9:16") }
+    var customRatioText by remember { mutableStateOf("3:2") }
     var importedCount by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val preferences = remember(context) { contextPreferences(context) }
@@ -174,11 +175,21 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
                         }
                     }
                 }
+                if (ratio == "Custom") {
+                    OutlinedTextField(
+                        value = customRatioText,
+                        onValueChange = { customRatioText = it },
+                        label = { Text("Custom ratio (width:height)") },
+                        placeholder = { Text("3:2") },
+                        singleLine = true
+                    )
+                }
             } },
             confirmButton = { TextButton(onClick = {
-                scope.launch { repository.create(projectName, projectType, ratio) }
+                val selectedRatio = if (ratio == "Custom") customRatioText.trim() else ratio
+                scope.launch { repository.create(projectName, projectType, selectedRatio) }
                 projectName = ""; createDialog = false
-            }) { Text("Create") } },
+            }, enabled = ratio != "Custom" || isValidAspectRatio(customRatioText)) { Text("Create") } },
             dismissButton = { TextButton(onClick = { createDialog = false }) { Text("Cancel") } }
         )
     }
@@ -334,6 +345,8 @@ private fun ProjectWorkspaceScreen(
     onOpenStudio: (Tab) -> Unit
 ) {
     var ratioMenu by remember { mutableStateOf(false) }
+    var showCustomRatioDialog by remember { mutableStateOf(false) }
+    var customRatioValue by remember { mutableStateOf("3:2") }
     Column(modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Surface(shape = RoundedCornerShape(22.dp), color = Ink) {
             Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -356,7 +369,10 @@ private fun ProjectWorkspaceScreen(
                         listOf("9:16", "16:9", "1:1", "4:5", "Custom").forEach { option ->
                             DropdownMenuItem(text = { Text(option) }, onClick = {
                                 ratioMenu = false
-                                onAspectRatioChange(option)
+                                if (option == "Custom") {
+                                    customRatioValue = project.aspectRatio.takeIf { isValidAspectRatio(it) } ?: "3:2"
+                                    showCustomRatioDialog = true
+                                } else onAspectRatioChange(option)
                             })
                         }
                     }
@@ -387,6 +403,38 @@ private fun ProjectWorkspaceScreen(
         }
         EditorTimelinePanel(project.id, editHistoryRepository)
     }
+    if (showCustomRatioDialog) {
+        AlertDialog(
+            onDismissRequest = { showCustomRatioDialog = false },
+            title = { Text("Custom canvas ratio") },
+            text = {
+                OutlinedTextField(
+                    value = customRatioValue,
+                    onValueChange = { customRatioValue = it },
+                    label = { Text("Width:height (e.g. 3:2)") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onAspectRatioChange(customRatioValue.trim())
+                        showCustomRatioDialog = false
+                    },
+                    enabled = isValidAspectRatio(customRatioValue)
+                ) { Text("Apply") }
+            },
+            dismissButton = { TextButton(onClick = { showCustomRatioDialog = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+private fun isValidAspectRatio(value: String): Boolean {
+    val parts = value.trim().split(":")
+    if (parts.size != 2) return false
+    val width = parts[0].toIntOrNull() ?: return false
+    val height = parts[1].toIntOrNull() ?: return false
+    return width in 1..10000 && height in 1..10000
 }
 
 @Composable
