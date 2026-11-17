@@ -275,7 +275,7 @@ private fun renderPhotoEdit(
     if (overlayText.isBlank()) return rotated
     val output = rotated.copy(Bitmap.Config.ARGB_8888, true)
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.WHITE
+        this.color = android.graphics.Color.WHITE
         textSize = (output.width.coerceAtMost(output.height) * 0.065f).coerceAtLeast(28f)
         setShadowLayer(5f, 2f, 2f, android.graphics.Color.BLACK)
         typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
