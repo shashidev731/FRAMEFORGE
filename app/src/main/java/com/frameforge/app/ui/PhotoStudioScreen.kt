@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.frameforge.app.ui.theme.*
+import com.frameforge.app.data.EditHistoryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -34,7 +35,7 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 
 @Composable
-fun PhotoStudioScreen(modifier: Modifier = Modifier) {
+fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, editHistoryRepository: EditHistoryRepository? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var sourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -51,6 +52,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
     var showOriginal by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Choose a photo to start editing.") }
     var exportBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var exportSummary by remember { mutableStateOf("") }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
@@ -90,6 +92,11 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
                     }.isSuccess
                 }
                 status = if (saved) "Export complete. Your edited copy was saved; the original remains unchanged." else "Export failed. Choose another destination and try again."
+                if (saved && projectId != null) {
+                    runCatching {
+                        editHistoryRepository?.record(projectId, "PHOTO_EXPORT", exportSummary)
+                    }
+                }
                 exportBitmap = null
             }
         }
@@ -185,6 +192,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
             Button(
                 onClick = {
                     exportBitmap = previewBitmap
+                    exportSummary = "crop=$cropRatio; exposure=$exposure EV; saturation=$saturation; contrast=$contrast; warmth=$warmth; rotation=$rotation; text=$overlayText"
                     savePicker.launch("FRAMEFORGE_${System.currentTimeMillis()}.jpg")
                 },
                 enabled = previewBitmap != null && !isProcessing,
