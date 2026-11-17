@@ -145,15 +145,31 @@ private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create
 private fun ProjectsScreen(projects: List<ProjectEntity>, repository: ProjectRepository, modifier: Modifier, create: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf<ProjectEntity?>(null) }
+    var renaming by remember { mutableStateOf<ProjectEntity?>(null) }
+    var renameText by remember { mutableStateOf("") }
+    var sortByName by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Your projects", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(),
             placeholder = { Text("Search projects") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { sortByName = !sortByName }) {
+                Icon(Icons.Default.Sort, null); Spacer(Modifier.width(6.dp))
+                Text(if (sortByName) "Sorted by name" else "Sorted by recent")
+            }
+            Text("${projects.size} total", color = Muted, style = MaterialTheme.typography.bodySmall)
+        }
         val filtered = projects.filter { it.name.contains(query, ignoreCase = true) }
+            .let { if (sortByName) it.sortedBy { project -> project.name.lowercase() } else it }
         if (filtered.isEmpty()) EmptyState("No matching projects", "Create a photo or video project to get started.", create)
         else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(filtered, key = { it.id }) { project -> ProjectCard(project, onClick = {}, onDelete = { deleting = project }) }
+            items(filtered, key = { it.id }) { project ->
+                ProjectCard(project, onClick = {},
+                    onDelete = { deleting = project },
+                    onRename = { renaming = project; renameText = project.name },
+                    onDuplicate = { scope.launch { repository.duplicate(project) } })
+            }
         }
     }
     deleting?.let { project ->
@@ -162,9 +178,18 @@ private fun ProjectsScreen(projects: List<ProjectEntity>, repository: ProjectRep
             confirmButton = { TextButton(onClick = { scope.launch { repository.delete(project.id) }; deleting = null }) { Text("Delete") } },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } })
     }
+    renaming?.let { project ->
+        AlertDialog(onDismissRequest = { renaming = null }, title = { Text("Rename project") },
+            text = { OutlinedTextField(renameText, { renameText = it }, label = { Text("Project name") }, singleLine = true) },
+            confirmButton = { TextButton(onClick = {
+                scope.launch { repository.rename(project.id, renameText) }
+                renaming = null
+            }, enabled = renameText.trim().isNotEmpty()) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } })
+    }
 }
 @Composable
-private fun ProjectCard(project: ProjectEntity, onClick: () -> Unit, onDelete: (() -> Unit)? = null) {
+private fun ProjectCard(project: ProjectEntity, onClick: () -> Unit, onDelete: (() -> Unit)? = null, onRename: (() -> Unit)? = null, onDuplicate: (() -> Unit)? = null) {
     Surface(onClick = onClick, shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(Modifier.size(52.dp), shape = RoundedCornerShape(14.dp), color = AccentSoft) {
@@ -177,8 +202,10 @@ private fun ProjectCard(project: ProjectEntity, onClick: () -> Unit, onDelete: (
                 Text(project.name, fontWeight = FontWeight.SemiBold)
                 Text("${project.type} • ${project.aspectRatio}", color = Muted, style = MaterialTheme.typography.bodySmall)
             }
+            if (onRename != null) IconButton(onClick = onRename) { Icon(Icons.Default.Edit, "Rename project", tint = Muted) }
+            if (onDuplicate != null) IconButton(onClick = onDuplicate) { Icon(Icons.Default.ContentCopy, "Duplicate project", tint = Muted) }
             if (onDelete != null) IconButton(onClick = onDelete) { Icon(Icons.Default.DeleteOutline, "Delete project", tint = Muted) }
-            else Icon(Icons.Default.ChevronRight, null, tint = Muted)
+            if (onDelete == null && onRename == null && onDuplicate == null) Icon(Icons.Default.ChevronRight, null, tint = Muted)
         }
     }
 }
