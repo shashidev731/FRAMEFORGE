@@ -463,13 +463,16 @@ private fun MediaPreviewDialog(item: MediaEntity, onDismiss: () -> Unit) {
                     )
                     item.mimeType.startsWith("video/") -> AndroidView(
                         factory = { viewContext ->
-                            VideoView(viewContext).apply {
-                                val controller = MediaController(viewContext)
-                                controller.setAnchorView(this)
-                                setMediaController(controller)
-                                setVideoURI(Uri.parse(item.uri))
-                                setOnPreparedListener { player -> player.isLooping = false }
+                            val videoView = VideoView(viewContext)
+                            val controller = MediaController(viewContext)
+                            controller.setAnchorView(videoView)
+                            videoView.setMediaController(controller)
+                            videoView.setVideoURI(Uri.parse(item.uri))
+                            videoView.setOnPreparedListener { player ->
+                                player.isLooping = false
+                                videoView.start()
                             }
+                            videoView
                         },
                         modifier = Modifier.fillMaxWidth().height(240.dp),
                         onRelease = { it.stopPlayback() }
