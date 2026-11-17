@@ -10,4 +10,5 @@ interface ProjectDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(project: ProjectEntity)
     @Query("DELETE FROM projects WHERE id = :id") suspend fun delete(id: String)
     @Query("UPDATE projects SET name = :name, updatedAt = :updatedAt WHERE id = :id") suspend fun rename(id: String, name: String, updatedAt: Long)
+    @Query("UPDATE projects SET aspectRatio = :aspectRatio, updatedAt = :updatedAt WHERE id = :id") suspend fun updateAspectRatio(id: String, aspectRatio: String, updatedAt: Long)
 }
