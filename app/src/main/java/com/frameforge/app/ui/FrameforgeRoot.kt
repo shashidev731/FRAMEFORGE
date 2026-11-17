@@ -39,6 +39,9 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     var projectType by remember { mutableStateOf("Video") }
     var ratio by remember { mutableStateOf("9:16") }
     var importedCount by remember { mutableIntStateOf(0) }
+    val preferences = remember { contextPreferences(LocalContext.current) }
+    var workspaceMode by remember { mutableStateOf(preferences.getString("workspace_mode", "Simple") ?: "Simple") }
+    var showOnboarding by remember { mutableStateOf(!preferences.getBoolean("onboarding_complete", false)) }
     val projects by repository.projects.collectAsStateWithLifecycle(initialValue = emptyList())
     val media by mediaRepository.media.collectAsStateWithLifecycle(initialValue = emptyList())
     val context = LocalContext.current
@@ -79,9 +82,54 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
             Tab.AI -> StudioScreen("AI Studio", "AI edits always require your approval", Icons.Default.AutoAwesome, Modifier.padding(inset),
                 "AI tools are not active yet. No media is uploaded or modified in this foundation build.", null)
             Tab.Library -> MediaLibraryScreen(media, Modifier.padding(inset), { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) }, { uri -> scope.launch { mediaRepository.delete(uri) } })
-            Tab.Settings -> StudioScreen("Settings", "Workspace, editing, storage, AI and privacy", Icons.Default.Settings, Modifier.padding(inset),
-                "Local-first foundation. Cloud sync and advanced preferences are planned for later phases.", null)
+            Tab.Settings -> SettingsScreen(
+                workspaceMode = workspaceMode,
+                onWorkspaceModeChange = { mode ->
+                    workspaceMode = mode
+                    preferences.edit().putString("workspace_mode", mode).apply()
+                },
+                modifier = Modifier.padding(inset)
+            )
         }
+    }
+    if (showOnboarding) {
+        AlertDialog(
+            onDismissRequest = {
+                preferences.edit().putBoolean("onboarding_complete", true).apply()
+                showOnboarding = false
+            },
+            icon = { Icon(Icons.Default.AutoAwesome, null, tint = Accent) },
+            title = { Text("Welcome to FRAMEFORGE") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Your creative workspace for photo and video editing.")
+                    Text("Choose how you want to work. You can change this any time in Settings.", color = Muted)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = workspaceMode == "Simple", onClick = { workspaceMode = "Simple" }, label = { Text("Simple") })
+                        FilterChip(selected = workspaceMode == "Professional", onClick = { workspaceMode = "Professional" }, label = { Text("Professional") })
+                    }
+                    Text(
+                        if (workspaceMode == "Simple") "Simple mode keeps the workspace approachable, with essential tools first."
+                        else "Professional mode is intended for detailed, multi-track workflows as those tools become available.",
+                        color = Muted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    preferences.edit().putString("workspace_mode", workspaceMode)
+                        .putBoolean("onboarding_complete", true).apply()
+                    showOnboarding = false
+                }) { Text("Get started") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    preferences.edit().putBoolean("onboarding_complete", true).apply()
+                    showOnboarding = false
+                }) { Text("Skip") }
+            }
+        )
     }
     if (createDialog) {
         AlertDialog(
@@ -297,5 +345,43 @@ private fun MediaLibraryScreen(
                 }
             }
         }
+    }
+}
+
+private fun contextPreferences(context: android.content.Context) =
+    context.getSharedPreferences("frameforge_preferences", android.content.Context.MODE_PRIVATE)
+
+@Composable
+private fun SettingsScreen(
+    workspaceMode: String,
+    onWorkspaceModeChange: (String) -> Unit,
+    modifier: Modifier
+) {
+    Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("Settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Workspace", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Choose the editing workspace that suits your workflow.", color = Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = workspaceMode == "Simple", onClick = { onWorkspaceModeChange("Simple") }, label = { Text("Simple") })
+                    FilterChip(selected = workspaceMode == "Professional", onClick = { onWorkspaceModeChange("Professional") }, label = { Text("Professional") })
+                }
+                Text(
+                    if (workspaceMode == "Simple") "Essential controls are prioritized. Advanced controls can be added as needed."
+                    else "A detailed workspace for advanced editing workflows.",
+                    color = Muted,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Storage & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Projects and media references are stored locally. Imported originals are not modified or deleted when you remove a library reference.", color = Muted)
+                Text("Cloud sync and AI processing are not enabled in this foundation build.", color = Muted)
+            }
+        }
+        Text("FRAMEFORGE • Foundation build", color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
