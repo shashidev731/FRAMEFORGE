@@ -18,6 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.frameforge.app.data.ProjectEntity
 import com.frameforge.app.data.ProjectRepository
+import com.frameforge.app.data.MediaEntity
+import com.frameforge.app.data.MediaRepository
+import androidx.compose.ui.platform.LocalContext
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -29,7 +32,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FrameforgeRoot(repository: ProjectRepository) {
+fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaRepository) {
     var tab by remember { mutableStateOf(Tab.Home) }
     var createDialog by remember { mutableStateOf(false) }
     var projectName by remember { mutableStateOf("") }
@@ -37,9 +40,17 @@ fun FrameforgeRoot(repository: ProjectRepository) {
     var ratio by remember { mutableStateOf("9:16") }
     var importedCount by remember { mutableIntStateOf(0) }
     val projects by repository.projects.collectAsStateWithLifecycle(initialValue = emptyList())
+    val media by mediaRepository.media.collectAsStateWithLifecycle(initialValue = emptyList())
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         importedCount += uris.size
+        uris.forEach { uri ->
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            val name = uri.lastPathSegment?.substringAfterLast('/')?.take(80)?.ifBlank { "Selected media" } ?: "Selected media"
+            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            scope.launch { mediaRepository.add(uri.toString(), name, mime) }
+        }
     }
     Scaffold(
         containerColor = Canvas,
@@ -67,8 +78,7 @@ fun FrameforgeRoot(repository: ProjectRepository) {
                 "Import photos to begin. Non-destructive photo tools are scheduled for Phase 2.", { mediaPicker.launch(arrayOf("image/*")) })
             Tab.AI -> StudioScreen("AI Studio", "AI edits always require your approval", Icons.Default.AutoAwesome, Modifier.padding(inset),
                 "AI tools are not active yet. No media is uploaded or modified in this foundation build.", null)
-            Tab.Library -> StudioScreen("Media Library", "Your selected media", Icons.Default.Collections, Modifier.padding(inset),
-                "$importedCount item(s) selected this session. Persistent media indexing is planned for Phase 1 follow-up.", { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) })
+            Tab.Library -> MediaLibraryScreen(media, Modifier.padding(inset), { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) }, { uri -> scope.launch { mediaRepository.delete(uri) } })
             Tab.Settings -> StudioScreen("Settings", "Workspace, editing, storage, AI and privacy", Icons.Default.Settings, Modifier.padding(inset),
                 "Local-first foundation. Cloud sync and advanced preferences are planned for later phases.", null)
         }
@@ -211,6 +221,53 @@ private fun QuickTile(label: String, icon: ImageVector, modifier: Modifier, open
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(icon, null, tint = Accent)
             Text(label, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+
+@Composable
+private fun MediaLibraryScreen(
+    media: List<MediaEntity>,
+    modifier: Modifier,
+    importMedia: () -> Unit,
+    removeMedia: (String) -> Unit
+) {
+    Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Media Library", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("Your selected media stays on your device. Original files are not copied, changed or deleted.", color = Muted)
+        Button(onClick = importMedia) {
+            Icon(Icons.Default.Add, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Import photos, videos or audio")
+        }
+        if (media.isEmpty()) {
+            EmptyState("Your library is empty", "Import media to keep a persistent reference in this library.", importMedia)
+        } else {
+            Text("${media.size} saved item(s)", color = Muted)
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(media, key = { it.uri }) { item ->
+                    Surface(shape = RoundedCornerShape(14.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                when {
+                                    item.mimeType.startsWith("video/") -> Icons.Default.Movie
+                                    item.mimeType.startsWith("audio/") -> Icons.Default.AudioFile
+                                    else -> Icons.Default.Image
+                                }, null, tint = Accent
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(item.displayName, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                Text(item.mimeType, color = Muted, style = MaterialTheme.typography.labelSmall)
+                            }
+                            IconButton(onClick = { removeMedia(item.uri) }) {
+                                Icon(Icons.Default.DeleteOutline, "Remove library reference")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
