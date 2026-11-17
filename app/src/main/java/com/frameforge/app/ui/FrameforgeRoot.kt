@@ -531,7 +531,7 @@ private fun MediaPreviewDialog(item: MediaEntity, onDismiss: () -> Unit) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close preview") }
                 }
                 when {
-                    item.mimeType.startsWith("image/") -> AndroidView(
+                    item.mimeType.startsWith("image/") -> key(item.uri) { AndroidView(
                         factory = { viewContext ->
                             ImageView(viewContext).apply {
                                 scaleType = ImageView.ScaleType.FIT_CENTER
@@ -539,8 +539,8 @@ private fun MediaPreviewDialog(item: MediaEntity, onDismiss: () -> Unit) {
                             }
                         },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 420.dp)
-                    )
-                    item.mimeType.startsWith("video/") -> AndroidView(
+                    ) }
+                    item.mimeType.startsWith("video/") -> key(item.uri) { AndroidView(
                         factory = { viewContext ->
                             val videoView = VideoView(viewContext)
                             val controller = MediaController(viewContext)
@@ -555,7 +555,7 @@ private fun MediaPreviewDialog(item: MediaEntity, onDismiss: () -> Unit) {
                         },
                         modifier = Modifier.fillMaxWidth().height(240.dp),
                         onRelease = { it.stopPlayback() }
-                    )
+                    ) }
                     item.mimeType.startsWith("audio/") -> AudioPreview(item.uri)
                     else -> Text("Preview is not available for this file type.", color = Muted)
                 }
