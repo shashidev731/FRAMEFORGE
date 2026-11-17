@@ -46,6 +46,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaRepository, editHistoryRepository: EditHistoryRepository) {
     var tab by remember { mutableStateOf(Tab.Home) }
     var selectedProject by remember { mutableStateOf<ProjectEntity?>(null) }
+    var studioProjectId by remember { mutableStateOf<String?>(null) }
     var createDialog by remember { mutableStateOf(false) }
     var projectName by remember { mutableStateOf("") }
     var projectType by remember { mutableStateOf("Video") }
@@ -76,18 +77,24 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     }
     Scaffold(
         containerColor = Canvas,
-        topBar = { TopAppBar(navigationIcon = { if (selectedProject != null) IconButton(onClick = { selectedProject = null }) { Icon(Icons.Default.ArrowBack, "Back to projects") } }, title = { Column {
-            Text(selectedProject?.name ?: "FRAMEFORGE", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
-            Text(if (selectedProject != null) "Project workspace" else "Create without limits", color = Muted, style = MaterialTheme.typography.labelSmall)
-        } }, actions = { if (selectedProject == null) IconButton(onClick = { tab = Tab.Settings }) { Icon(Icons.Default.Settings, "Settings") } },
+        topBar = { TopAppBar(navigationIcon = {
+            if (selectedProject != null) IconButton(onClick = { selectedProject = null }) { Icon(Icons.Default.ArrowBack, "Back to projects") }
+            else if (studioProjectId != null) IconButton(onClick = {
+                selectedProject = projects.firstOrNull { it.id == studioProjectId }
+                studioProjectId = null
+            }) { Icon(Icons.Default.ArrowBack, "Back to project") }
+        }, title = { Column {
+            Text(selectedProject?.name ?: studioProjectId?.let { id -> projects.firstOrNull { it.id == id }?.name } ?: "FRAMEFORGE", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
+            Text(when { selectedProject != null -> "Project workspace"; studioProjectId != null -> tab.label + " • Project editor"; else -> "Create without limits" }, color = Muted, style = MaterialTheme.typography.labelSmall)
+        } }, actions = { if (selectedProject == null && studioProjectId == null) IconButton(onClick = { tab = Tab.Settings }) { Icon(Icons.Default.Settings, "Settings") } },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Canvas)) },
-        bottomBar = { if (selectedProject == null) NavigationBar(containerColor = SurfaceWhite) {
+        bottomBar = { if (selectedProject == null && studioProjectId == null) NavigationBar(containerColor = SurfaceWhite) {
             listOf(Tab.Home, Tab.Projects, Tab.Video, Tab.Photo, Tab.AI, Tab.Library).forEach { item ->
-                NavigationBarItem(selected = tab == item, onClick = { tab = item },
+                NavigationBarItem(selected = tab == item, onClick = { studioProjectId = null; tab = item },
                     icon = { Icon(item.icon, item.label) }, label = { Text(item.label, maxLines = 1) })
             }
         } },
-        floatingActionButton = { if (selectedProject == null && (tab == Tab.Home || tab == Tab.Projects)) FloatingActionButton(
+        floatingActionButton = { if (selectedProject == null && studioProjectId == null && (tab == Tab.Home || tab == Tab.Projects)) FloatingActionButton(
             onClick = { createDialog = true }, containerColor = Accent, contentColor = SurfaceWhite
         ) { Icon(Icons.Default.Add, "Create project") } }
     ) { inset ->
@@ -96,12 +103,12 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
             ProjectWorkspaceScreen(project, Modifier.padding(inset), editHistoryRepository, onAspectRatioChange = { newRatio ->
                 scope.launch { repository.updateAspectRatio(project.id, newRatio) }
                 selectedProject = project.copy(aspectRatio = newRatio, updatedAt = System.currentTimeMillis())
-            }, onOpenStudio = { destination -> selectedProject = null; tab = destination })
+            }, onOpenStudio = { destination -> studioProjectId = project.id; selectedProject = null; tab = destination })
         } else when (tab) {
-            Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { tab = Tab.Video }, { tab = Tab.Photo }, { tab = Tab.AI }, { selectedProject = it })
+            Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { studioProjectId = null; tab = Tab.Video }, { studioProjectId = null; tab = Tab.Photo }, { studioProjectId = null; tab = Tab.AI }, { selectedProject = it })
             Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true }, { selectedProject = it })
-            Tab.Video -> VideoStudioScreen(Modifier.padding(inset))
-            Tab.Photo -> PhotoStudioScreen(Modifier.padding(inset))
+            Tab.Video -> VideoStudioScreen(Modifier.padding(inset), studioProjectId, editHistoryRepository)
+            Tab.Photo -> PhotoStudioScreen(Modifier.padding(inset), studioProjectId, editHistoryRepository)
             Tab.AI -> StudioScreen("AI Studio", "AI edits always require your approval", Icons.Default.AutoAwesome, Modifier.padding(inset),
                 "AI tools are not active yet. No media is uploaded or modified in this foundation build.", null)
             Tab.Library -> MediaLibraryScreen(media, Modifier.padding(inset), { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) }, { uri -> scope.launch { mediaRepository.delete(uri) } })
@@ -397,7 +404,7 @@ private fun ProjectWorkspaceScreen(
         Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Editing engine status", fontWeight = FontWeight.SemiBold)
-                Text("Project management and canvas preferences are active. Timeline editing, effects and export are being built next; no placeholder action will modify your media.",
+                Text("Basic photo adjustments and MP4 trim export are active in their studios. A unified multitrack timeline, advanced effects and shared render engine are still in development.",
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         }
