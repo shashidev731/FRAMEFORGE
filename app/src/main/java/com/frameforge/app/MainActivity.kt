@@ -20,11 +20,18 @@ private val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+private val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("CREATE TABLE IF NOT EXISTS edit_operations (operationId TEXT NOT NULL PRIMARY KEY, projectId TEXT NOT NULL, sequence INTEGER NOT NULL, operationType TEXT NOT NULL, payload TEXT NOT NULL, createdAt INTEGER NOT NULL, isApplied INTEGER NOT NULL DEFAULT 1)")
+        database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_edit_operations_projectId_sequence ON edit_operations(projectId, sequence)")
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = Room.databaseBuilder(applicationContext, FrameforgeDatabase::class.java, "frameforge.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
         setContent {
             FrameforgeTheme {
