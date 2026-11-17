@@ -153,7 +153,7 @@ private fun ProjectsScreen(projects: List<ProjectEntity>, repository: ProjectRep
         val filtered = projects.filter { it.name.contains(query, ignoreCase = true) }
         if (filtered.isEmpty()) EmptyState("No matching projects", "Create a photo or video project to get started.", create)
         else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(filtered, key = { it.id }) { project -> ProjectCard(project) { deleting = project } }
+            items(filtered, key = { it.id }) { project -> ProjectCard(project, onClick = {}, onDelete = { deleting = project }) }
         }
     }
     deleting?.let { project ->
@@ -164,7 +164,7 @@ private fun ProjectsScreen(projects: List<ProjectEntity>, repository: ProjectRep
     }
 }
 @Composable
-private fun ProjectCard(project: ProjectEntity, onClick: () -> Unit) {
+private fun ProjectCard(project: ProjectEntity, onClick: () -> Unit, onDelete: (() -> Unit)? = null) {
     Surface(onClick = onClick, shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(Modifier.size(52.dp), shape = RoundedCornerShape(14.dp), color = AccentSoft) {
@@ -177,7 +177,8 @@ private fun ProjectCard(project: ProjectEntity, onClick: () -> Unit) {
                 Text(project.name, fontWeight = FontWeight.SemiBold)
                 Text("${project.type} • ${project.aspectRatio}", color = Muted, style = MaterialTheme.typography.bodySmall)
             }
-            Icon(Icons.Default.ChevronRight, null, tint = Muted)
+            if (onDelete != null) IconButton(onClick = onDelete) { Icon(Icons.Default.DeleteOutline, "Delete project", tint = Muted) }
+            else Icon(Icons.Default.ChevronRight, null, tint = Muted)
         }
     }
 }
