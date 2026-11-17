@@ -49,6 +49,9 @@ interface TimelineClipDao {
     @Query("UPDATE timeline_clips SET trimEndMs = :endMs WHERE clipId = :clipId")
     suspend fun setTrimEnd(clipId: String, endMs: Long)
 
+    @Query("UPDATE timeline_clips SET trimStartMs = :startMs, trimEndMs = :endMs WHERE clipId = :clipId")
+    suspend fun updateTrimRange(clipId: String, startMs: Long, endMs: Long)
+
     @Transaction
     suspend fun splitAt(clipId: String, splitAtMs: Long): Boolean {
         val current = find(clipId) ?: return false
