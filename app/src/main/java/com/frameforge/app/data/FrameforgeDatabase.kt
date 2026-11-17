@@ -1,5 +1,10 @@
 package com.frameforge.app.data
+
 import androidx.room.Database
 import androidx.room.RoomDatabase
-@Database(entities = [ProjectEntity::class], version = 1, exportSchema = false)
-abstract class FrameforgeDatabase : RoomDatabase() { abstract fun projectDao(): ProjectDao }
+
+@Database(entities = [ProjectEntity::class, MediaEntity::class], version = 2, exportSchema = false)
+abstract class FrameforgeDatabase : RoomDatabase() {
+    abstract fun projectDao(): ProjectDao
+    abstract fun mediaDao(): MediaDao
+}
