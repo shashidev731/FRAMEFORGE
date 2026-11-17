@@ -30,6 +30,9 @@ interface EditOperationDao {
     @Query("SELECT COUNT(*) FROM edit_operations WHERE projectId = :projectId AND isApplied = 1")
     suspend fun appliedCount(projectId: String): Int
 
+    @Query("DELETE FROM edit_operations WHERE projectId = :projectId")
+    suspend fun deleteForProject(projectId: String)
+
     @Transaction
     suspend fun appendOperation(projectId: String, type: String, payload: String, operationId: String, createdAt: Long) {
         discardRedoBranch(projectId)
