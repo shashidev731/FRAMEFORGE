@@ -122,7 +122,7 @@ fun EditorTimelinePanel(projectId: String, repository: EditHistoryRepository) {
                 Icon(Icons.Default.Info, null, tint = Accent)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "Honest status: these instructions and undo/redo state are saved locally. The media rendering engine, real-time preview and export pipeline are not connected yet, so adding an instruction does not change the original photo or video.",
+                    "Project history stores edit instructions and successful photo/video exports. Undo/Redo changes the history state only; it does not delete or reverse files already exported. A unified reversible timeline and advanced renderer are still in development.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Ink
                 )
@@ -146,6 +146,8 @@ private fun OperationRow(operation: EditOperationEntity) {
                     "CROP" -> Icons.Default.Crop
                     "EXPOSURE" -> Icons.Default.Brightness6
                     "ROTATE" -> Icons.Default.RotateRight
+                    "PHOTO_EXPORT" -> Icons.Default.Image
+                    "VIDEO_TRIM" -> Icons.Default.ContentCut
                     else -> Icons.Default.TextFields
                 },
                 null,
