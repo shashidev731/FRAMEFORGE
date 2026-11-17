@@ -9,6 +9,10 @@ class ProjectRepository(private val dao: ProjectDao) {
         dao.upsert(ProjectEntity(UUID.randomUUID().toString(), cleanName, type, ratio, now, now))
     }
     suspend fun delete(id: String) = dao.delete(id)
+    suspend fun duplicate(project: ProjectEntity) {
+        val now = System.currentTimeMillis()
+        dao.upsert(project.copy(id = UUID.randomUUID().toString(), name = "${project.name} copy", createdAt = now, updatedAt = now))
+    }
     suspend fun rename(id: String, name: String) {
         val cleanName = name.trim()
         if (cleanName.isNotEmpty()) dao.rename(id, cleanName, System.currentTimeMillis())
