@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
             .build()
         setContent {
             FrameforgeTheme {
-                FrameforgeRoot(ProjectRepository(db.projectDao(), db.editOperationDao()), MediaRepository(db.mediaDao()), EditHistoryRepository(db.editOperationDao()), TimelineRepository(db.timelineClipDao()))
+                FrameforgeRoot(ProjectRepository(db.projectDao(), db.editOperationDao(), db.timelineClipDao()), MediaRepository(db.mediaDao()), EditHistoryRepository(db.editOperationDao()), TimelineRepository(db.timelineClipDao()))
             }
         }
     }
