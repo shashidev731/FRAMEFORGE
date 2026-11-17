@@ -1,5 +1,6 @@
 package com.frameforge.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -18,6 +19,6 @@ data class TimelineClipEntity(
     val position: Int,
     val trimStartMs: Long = 0L,
     val trimEndMs: Long? = null,
-    val durationMs: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val durationMs: Long = 0L,
     val createdAt: Long
 )
