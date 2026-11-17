@@ -111,6 +111,7 @@ fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
         if (videoUri != null) {
             Text(videoName, color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
             Surface(shape = RoundedCornerShape(18.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
+                key(videoUri) {
                 AndroidView(
                     factory = { viewContext ->
                         val view = VideoView(viewContext)
@@ -124,6 +125,7 @@ fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                     modifier = Modifier.fillMaxWidth().height(230.dp),
                     onRelease = { it.stopPlayback() }
                 )
+                }
             }
             Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
