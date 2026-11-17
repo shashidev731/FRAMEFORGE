@@ -10,6 +10,7 @@ import com.frameforge.app.data.FrameforgeDatabase
 import com.frameforge.app.data.ProjectRepository
 import com.frameforge.app.data.MediaRepository
 import com.frameforge.app.data.EditHistoryRepository
+import com.frameforge.app.data.TimelineRepository
 import com.frameforge.app.ui.FrameforgeRoot
 import com.frameforge.app.ui.theme.FrameforgeTheme
 
@@ -28,15 +29,22 @@ private val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
+private val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("CREATE TABLE IF NOT EXISTS timeline_clips (clipId TEXT NOT NULL PRIMARY KEY, projectId TEXT NOT NULL, mediaUri TEXT NOT NULL, displayName TEXT NOT NULL, mimeType TEXT NOT NULL, trackIndex INTEGER NOT NULL, position INTEGER NOT NULL, trimStartMs INTEGER NOT NULL, trimEndMs INTEGER, createdAt INTEGER NOT NULL)")
+        database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_timeline_clips_projectId_trackIndex_position ON timeline_clips(projectId, trackIndex, position)")
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = Room.databaseBuilder(applicationContext, FrameforgeDatabase::class.java, "frameforge.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
         setContent {
             FrameforgeTheme {
-                FrameforgeRoot(ProjectRepository(db.projectDao(), db.editOperationDao()), MediaRepository(db.mediaDao()), EditHistoryRepository(db.editOperationDao()))
+                FrameforgeRoot(ProjectRepository(db.projectDao(), db.editOperationDao()), MediaRepository(db.mediaDao()), EditHistoryRepository(db.editOperationDao()), TimelineRepository(db.timelineClipDao()))
             }
         }
     }
