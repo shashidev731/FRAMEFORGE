@@ -60,7 +60,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
         } }, actions = { IconButton(onClick = { tab = Tab.Settings }) { Icon(Icons.Default.Settings, "Settings") } },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Canvas)) },
         bottomBar = { NavigationBar(containerColor = SurfaceWhite) {
-            listOf(Tab.Home, Tab.Projects, Tab.Video, Tab.Photo, Tab.AI).forEach { item ->
+            listOf(Tab.Home, Tab.Projects, Tab.Video, Tab.Photo, Tab.AI, Tab.Library).forEach { item ->
                 NavigationBarItem(selected = tab == item, onClick = { tab = item },
                     icon = { Icon(item.icon, item.label) }, label = { Text(item.label, maxLines = 1) })
             }
@@ -70,7 +70,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
         ) { Icon(Icons.Default.Add, "Create project") } }
     ) { inset ->
         when (tab) {
-            Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { tab = Tab.Video })
+            Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { tab = Tab.Video }, { tab = Tab.Photo }, { tab = Tab.AI })
             Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true })
             Tab.Video -> StudioScreen("Video Studio", "Your video workspace", Icons.Default.Movie, Modifier.padding(inset),
                 "Import video clips to begin. The editing engine is scheduled for Phase 2.", { mediaPicker.launch(arrayOf("video/*")) })
@@ -114,7 +114,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     }
 }
 @Composable
-private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create: () -> Unit, openVideo: () -> Unit) {
+private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create: () -> Unit, openVideo: () -> Unit, openPhoto: () -> Unit, openAi: () -> Unit) {
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Surface(shape = RoundedCornerShape(26.dp), color = Ink) {
             Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -136,8 +136,8 @@ private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create
         Text("Quick studios", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuickTile("Video", Icons.Default.Movie, Modifier.weight(1f), openVideo)
-            QuickTile("Photo", Icons.Default.Photo, Modifier.weight(1f), openVideo)
-            QuickTile("AI", Icons.Default.AutoAwesome, Modifier.weight(1f), openVideo)
+            QuickTile("Photo", Icons.Default.Photo, Modifier.weight(1f), openPhoto)
+            QuickTile("AI", Icons.Default.AutoAwesome, Modifier.weight(1f), openAi)
         }
     }
 }
