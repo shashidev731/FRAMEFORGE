@@ -477,10 +477,54 @@ private fun MediaPreviewDialog(item: MediaEntity, onDismiss: () -> Unit) {
                         modifier = Modifier.fillMaxWidth().height(240.dp),
                         onRelease = { it.stopPlayback() }
                     )
-                    else -> Text("Audio playback preview will be added in the Audio Studio.", color = Muted)
+                    item.mimeType.startsWith("audio/") -> AudioPreview(item.uri)
+                    else -> Text("Preview is not available for this file type.", color = Muted)
                 }
                 Text(item.mimeType, color = Muted, style = MaterialTheme.typography.labelSmall)
             }
+        }
+    }
+}
+
+@Composable
+private fun AudioPreview(uri: String) {
+    val context = LocalContext.current
+    var ready by remember(uri) { mutableStateOf(false) }
+    var playing by remember(uri) { mutableStateOf(false) }
+    val player = remember(uri) { android.media.MediaPlayer() }
+    DisposableEffect(player, uri) {
+        try {
+            player.setDataSource(context, Uri.parse(uri))
+            player.setOnPreparedListener { ready = true }
+            player.setOnCompletionListener { playing = false }
+            player.prepareAsync()
+        } catch (_: Exception) {
+            ready = false
+        }
+        onDispose {
+            runCatching { if (player.isPlaying) player.stop() }
+            runCatching { player.release() }
+        }
+    }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(Icons.Default.AudioFile, null, tint = Accent, modifier = Modifier.size(36.dp))
+        Column(Modifier.weight(1f)) {
+            Text(if (ready) "Audio ready" else "Preparing audio…", fontWeight = FontWeight.SemiBold)
+            Text("Local playback • original file unchanged", color = Muted, style = MaterialTheme.typography.bodySmall)
+        }
+        Button(onClick = {
+            if (playing) {
+                player.pause()
+                playing = false
+            } else {
+                player.start()
+                playing = true
+            }
+        }, enabled = ready) {
+            Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null)
+            Spacer(Modifier.width(4.dp))
+            Text(if (playing) "Pause" else "Play")
         }
     }
 }
