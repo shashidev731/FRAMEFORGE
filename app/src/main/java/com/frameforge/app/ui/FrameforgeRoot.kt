@@ -21,6 +21,7 @@ import com.frameforge.app.data.ProjectRepository
 import com.frameforge.app.data.MediaEntity
 import com.frameforge.app.data.MediaRepository
 import androidx.compose.ui.platform.LocalContext
+import android.provider.OpenableColumns
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -51,7 +52,13 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
         importedCount += uris.size
         uris.forEach { uri ->
             runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            val name = uri.lastPathSegment?.substringAfterLast('/')?.take(80)?.ifBlank { "Selected media" } ?: "Selected media"
+            val name = runCatching {
+                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+            }.getOrNull()?.take(120)?.ifBlank { null }
+                ?: uri.lastPathSegment?.substringAfterLast('/')?.take(80)?.ifBlank { "Selected media" }
+                ?: "Selected media"
             val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
             scope.launch { mediaRepository.add(uri.toString(), name, mime) }
         }
