@@ -3,8 +3,9 @@ package com.frameforge.app.data
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
-@Database(entities = [ProjectEntity::class, MediaEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ProjectEntity::class, MediaEntity::class, EditOperationEntity::class], version = 3, exportSchema = false)
 abstract class FrameforgeDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
     abstract fun mediaDao(): MediaDao
+    abstract fun editOperationDao(): EditOperationDao
 }
