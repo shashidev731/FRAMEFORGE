@@ -132,7 +132,7 @@ private fun HomeScreen(projects: List<ProjectEntity>, modifier: Modifier, create
             Text("${projects.size} projects", color = Muted)
         }
         if (projects.isEmpty()) EmptyState("Your next great edit starts here", "Create a project to see it here.", create)
-        else projects.take(4).forEach { ProjectCard(it) {} }
+        else projects.take(4).forEach { ProjectCard(it, onClick = {}) }
         Text("Quick studios", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuickTile("Video", Icons.Default.Movie, Modifier.weight(1f), openVideo)
