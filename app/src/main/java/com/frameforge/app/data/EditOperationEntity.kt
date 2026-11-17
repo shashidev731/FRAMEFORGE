@@ -1,6 +1,7 @@
 package com.frameforge.app.data
 
 import androidx.room.ColumnInfo
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -20,5 +21,5 @@ data class EditOperationEntity(
     val operationType: String,
     val payload: String,
     val createdAt: Long,
-    @ColumnInfo(defaultValue = "1") val isApplied: Boolean = true
+    @ColumnInfo(defaultValue = "1") @ColumnInfo(defaultValue = "1") val isApplied: Boolean = true
 )
