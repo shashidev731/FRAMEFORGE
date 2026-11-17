@@ -24,6 +24,21 @@ interface TimelineClipDao {
     @Query("DELETE FROM timeline_clips WHERE clipId = :clipId")
     suspend fun delete(clipId: String)
 
+    @Query("SELECT * FROM timeline_clips WHERE projectId = :projectId AND trackIndex = :trackIndex ORDER BY position ASC")
+    suspend fun clipsInTrack(projectId: String, trackIndex: Int): List<TimelineClipEntity>
+
+    @Query("UPDATE timeline_clips SET position = -position - 1 WHERE projectId = :projectId AND trackIndex = :trackIndex")
+    suspend fun moveTrackToTemporaryPositions(projectId: String, trackIndex: Int)
+
+    @Transaction
+    suspend fun removeAndCompact(clipId: String) {
+        val clip = find(clipId) ?: return
+        delete(clipId)
+        val remaining = clipsInTrack(clip.projectId, clip.trackIndex)
+        moveTrackToTemporaryPositions(clip.projectId, clip.trackIndex)
+        remaining.forEachIndexed { index, item -> setPosition(item.clipId, index) }
+    }
+
     @Query("UPDATE timeline_clips SET position = -1 WHERE clipId = :clipId")
     suspend fun moveToTemporary(clipId: String)
 
