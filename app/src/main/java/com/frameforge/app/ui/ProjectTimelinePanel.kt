@@ -135,8 +135,6 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             },
                             enabled = trimEnd - trimStart > 1000f
                         ) {
-                            Icon(Icons.Default.ContentCut, null)
-                            Spacer(Modifier.width(6.dp))
                             Text("Split")
                         }
                     }
