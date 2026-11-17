@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
             .build()
         setContent {
             FrameforgeTheme {
-                FrameforgeRoot(ProjectRepository(db.projectDao()), MediaRepository(db.mediaDao()), EditHistoryRepository(db.editOperationDao()))
+                FrameforgeRoot(ProjectRepository(db.projectDao(), db.editOperationDao()), MediaRepository(db.mediaDao()), EditHistoryRepository(db.editOperationDao()))
             }
         }
     }
