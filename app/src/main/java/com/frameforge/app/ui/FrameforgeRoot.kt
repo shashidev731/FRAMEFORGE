@@ -25,6 +25,7 @@ import com.frameforge.app.data.ProjectRepository
 import com.frameforge.app.data.MediaEntity
 import com.frameforge.app.data.MediaRepository
 import com.frameforge.app.data.EditHistoryRepository
+import com.frameforge.app.data.TimelineRepository
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import android.provider.OpenableColumns
@@ -43,7 +44,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaRepository, editHistoryRepository: EditHistoryRepository) {
+fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaRepository, editHistoryRepository: EditHistoryRepository, timelineRepository: TimelineRepository) {
     var tab by remember { mutableStateOf(Tab.Home) }
     var selectedProject by remember { mutableStateOf<ProjectEntity?>(null) }
     var studioProjectId by remember { mutableStateOf<String?>(null) }
@@ -100,7 +101,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     ) { inset ->
         if (selectedProject != null) {
             val project = projects.firstOrNull { it.id == selectedProject?.id } ?: selectedProject!!
-            ProjectWorkspaceScreen(project, Modifier.padding(inset), editHistoryRepository, onAspectRatioChange = { newRatio ->
+            ProjectWorkspaceScreen(project, Modifier.padding(inset), editHistoryRepository, media, timelineRepository, onAspectRatioChange = { newRatio ->
                 scope.launch { repository.updateAspectRatio(project.id, newRatio) }
                 selectedProject = project.copy(aspectRatio = newRatio, updatedAt = System.currentTimeMillis())
             }, onOpenStudio = { destination -> studioProjectId = project.id; selectedProject = null; tab = destination })
@@ -348,6 +349,8 @@ private fun ProjectWorkspaceScreen(
     project: ProjectEntity,
     modifier: Modifier,
     editHistoryRepository: EditHistoryRepository,
+    media: List<MediaEntity>,
+    timelineRepository: TimelineRepository,
     onAspectRatioChange: (String) -> Unit,
     onOpenStudio: (Tab) -> Unit
 ) {
@@ -408,6 +411,7 @@ private fun ProjectWorkspaceScreen(
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         }
+        ProjectTimelinePanel(project.id, media, timelineRepository)
         EditorTimelinePanel(project.id, editHistoryRepository)
     }
     if (showCustomRatioDialog) {
