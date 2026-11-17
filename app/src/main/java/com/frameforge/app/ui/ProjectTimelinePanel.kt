@@ -109,34 +109,37 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                     } else {
                         Text("Audio clip selected. Audio playback and waveform controls are not connected yet.", color = SurfaceWhite.copy(alpha = .75f))
                     }
-                    val durationFloat = selectedClip.durationMs.toFloat().coerceAtLeast(1f)
-                    val clipEnd = selectedClip.trimEndMs ?: selectedClip.durationMs
-                    var trimStart by remember(selectedClip.clipId, selectedClip.trimStartMs) {
-                        mutableFloatStateOf(selectedClip.trimStartMs.toFloat())
-                    }
-                    var trimEnd by remember(selectedClip.clipId, selectedClip.trimEndMs, selectedClip.durationMs) {
-                        mutableFloatStateOf(clipEnd.toFloat().coerceIn(1f, durationFloat))
-                    }
-                    Text("Trim start • " + formatTimelineDuration(trimStart.toLong()), color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
-                    Slider(value = trimStart, onValueChange = { trimStart = it.coerceAtMost(trimEnd - 0.1f) },
-                        valueRange = 0f..(durationFloat - 0.1f).coerceAtLeast(0.1f))
-                    Text("Trim end • " + formatTimelineDuration(trimEnd.toLong()), color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
-                    Slider(value = trimEnd, onValueChange = { trimEnd = it.coerceAtLeast(trimStart + 0.1f) },
-                        valueRange = (trimStart + 0.1f).coerceAtMost(durationFloat)..durationFloat)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { scope.launch { repository.updateTrim(selectedClip, trimStart.toLong(), trimEnd.toLong()) } },
-                            enabled = trimEnd - trimStart >= 1f
-                        ) { Text("Apply trim") }
-                        OutlinedButton(
-                            onClick = {
-                                val midpoint = trimStart.toLong() + (trimEnd.toLong() - trimStart.toLong()) / 2L
-                                scope.launch { repository.splitAt(selectedClip.clipId, midpoint) }
-                            },
-                            enabled = trimEnd - trimStart > 1000f
-                        ) {
-                            Text("Split")
+                    if (selectedClip.durationMs > 0L) {
+                        val durationFloat = selectedClip.durationMs.toFloat()
+                        val clipEnd = selectedClip.trimEndMs ?: selectedClip.durationMs
+                        var trimStart by remember(selectedClip.clipId, selectedClip.trimStartMs) {
+                            mutableFloatStateOf(selectedClip.trimStartMs.toFloat().coerceIn(0f, durationFloat - 1f))
                         }
+                        var trimEnd by remember(selectedClip.clipId, selectedClip.trimEndMs, selectedClip.durationMs) {
+                            mutableFloatStateOf(clipEnd.toFloat().coerceIn(1f, durationFloat))
+                        }
+                        Text("Trim start • " + formatTimelineDuration(trimStart.toLong()), color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Slider(value = trimStart, onValueChange = { trimStart = it.coerceAtMost(trimEnd - 1f) },
+                            valueRange = 0f..(durationFloat - 1f).coerceAtLeast(0f))
+                        Text("Trim end • " + formatTimelineDuration(trimEnd.toLong()), color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Slider(value = trimEnd, onValueChange = { trimEnd = it.coerceAtLeast(trimStart + 1f) },
+                            valueRange = (trimStart + 1f).coerceAtMost(durationFloat)..durationFloat)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { scope.launch { repository.updateTrim(selectedClip, trimStart.toLong(), trimEnd.toLong()) } },
+                                enabled = trimEnd - trimStart >= 1f
+                            ) { Text("Apply trim") }
+                            OutlinedButton(
+                                onClick = {
+                                    val midpoint = trimStart.toLong() + (trimEnd.toLong() - trimStart.toLong()) / 2L
+                                    scope.launch { repository.splitAt(selectedClip.clipId, midpoint) }
+                                },
+                                enabled = trimEnd - trimStart > 1000f
+                            ) { Text("Split") }
+                        }
+                    } else {
+                        Text("Duration unavailable. Trim and split are disabled until the media duration can be read.",
+                            color = SurfaceWhite.copy(alpha = .75f), style = MaterialTheme.typography.bodySmall)
                     }
                     Text("Trimming changes only this timeline segment; the source file remains untouched.",
                         color = SurfaceWhite.copy(alpha = .7f), style = MaterialTheme.typography.labelSmall)
@@ -214,9 +217,9 @@ private fun readTimelineMediaDuration(context: android.content.Context, uriText:
     val retriever = MediaMetadataRetriever()
     return try {
         retriever.setDataSource(context, Uri.parse(uriText))
-        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.coerceAtLeast(1L) ?: 5000L
+        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.takeIf { it > 0L } ?: 0L
     } catch (_: Exception) {
-        5000L
+        0L
     } finally {
         runCatching { retriever.release() }
     }
