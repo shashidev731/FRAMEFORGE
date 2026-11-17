@@ -17,4 +17,7 @@ class ProjectRepository(private val dao: ProjectDao) {
         val cleanName = name.trim()
         if (cleanName.isNotEmpty()) dao.rename(id, cleanName, System.currentTimeMillis())
     }
+    suspend fun updateAspectRatio(id: String, aspectRatio: String) {
+        if (aspectRatio.isNotBlank()) dao.updateAspectRatio(id, aspectRatio, System.currentTimeMillis())
+    }
 }
