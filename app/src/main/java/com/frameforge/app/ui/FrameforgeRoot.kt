@@ -78,7 +78,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
             ProjectWorkspaceScreen(project, Modifier.padding(inset), onAspectRatioChange = { newRatio ->
                 scope.launch { repository.updateAspectRatio(project.id, newRatio) }
                 selectedProject = project.copy(aspectRatio = newRatio, updatedAt = System.currentTimeMillis())
-            }, onOpenStudio = { destination -> tab = destination })
+            }, onOpenStudio = { destination -> selectedProject = null; tab = destination })
         } else when (tab) {
             Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { tab = Tab.Video }, { tab = Tab.Photo }, { tab = Tab.AI }, { selectedProject = it })
             Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true }, { selectedProject = it })
