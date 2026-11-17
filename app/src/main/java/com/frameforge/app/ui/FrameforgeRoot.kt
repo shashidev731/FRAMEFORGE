@@ -101,8 +101,7 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
             Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true }, { selectedProject = it })
             Tab.Video -> StudioScreen("Video Studio", "Your video workspace", Icons.Default.Movie, Modifier.padding(inset),
                 "Import video clips to begin. The editing engine is scheduled for Phase 2.", { mediaPicker.launch(arrayOf("video/*")) })
-            Tab.Photo -> StudioScreen("Photo Studio", "Your photo workspace", Icons.Default.Photo, Modifier.padding(inset),
-                "Import photos to begin. Non-destructive photo tools are scheduled for Phase 2.", { mediaPicker.launch(arrayOf("image/*")) })
+            Tab.Photo -> PhotoStudioScreen(Modifier.padding(inset))
             Tab.AI -> StudioScreen("AI Studio", "AI edits always require your approval", Icons.Default.AutoAwesome, Modifier.padding(inset),
                 "AI tools are not active yet. No media is uploaded or modified in this foundation build.", null)
             Tab.Library -> MediaLibraryScreen(media, Modifier.padding(inset), { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) }, { uri -> scope.launch { mediaRepository.delete(uri) } })
