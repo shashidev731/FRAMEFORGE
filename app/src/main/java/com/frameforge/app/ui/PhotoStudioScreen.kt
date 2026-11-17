@@ -48,6 +48,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
     var rotation by remember { mutableIntStateOf(0) }
     var cropRatio by remember { mutableStateOf("Original") }
     var isProcessing by remember { mutableStateOf(false) }
+    var showOriginal by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Choose a photo to start editing.") }
     var exportBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
@@ -70,6 +71,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
                 overlayText = ""
                 rotation = 0
                 cropRatio = "Original"
+                showOriginal = false
                 status = if (decoded == null) "This image could not be opened." else "Original loaded. Adjust the controls; the source file stays unchanged."
                 isProcessing = false
             }
@@ -124,11 +126,20 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier) {
                 }
             }
         } else {
-            Text(sourceName, color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(sourceName, modifier = Modifier.weight(1f), color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                TextButton(onClick = { showOriginal = !showOriginal }, enabled = previewBitmap != null) {
+                    Icon(Icons.Default.Compare, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (showOriginal) "Show edited" else "Compare original")
+                }
+            }
             Surface(shape = RoundedCornerShape(18.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
                 Box(Modifier.fillMaxWidth().heightIn(min = 220.dp, max = 420.dp).padding(8.dp),
                     contentAlignment = Alignment.Center) {
-                    previewBitmap?.let { Image(bitmap = it.asImageBitmap(), contentDescription = "Edited photo preview",
+                    val visibleBitmap = if (showOriginal) sourceBitmap else previewBitmap
+                    visibleBitmap?.let { Image(bitmap = it.asImageBitmap(),
+                        contentDescription = if (showOriginal) "Original photo" else "Edited photo preview",
                         modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) }
                     if (isProcessing) CircularProgressIndicator(color = Accent)
                 }
