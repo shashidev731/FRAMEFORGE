@@ -8,7 +8,7 @@ class TimelineRepository(private val dao: TimelineClipDao) {
 
     suspend fun add(projectId: String, uri: String, name: String, mimeType: String, durationMs: Long = 5000L) {
         require(projectId.isNotBlank() && uri.isNotBlank())
-        val track = 0
+        val track = if (mimeType.startsWith("audio/")) 1 else 0
         dao.insert(
             TimelineClipEntity(
                 clipId = UUID.randomUUID().toString(),
