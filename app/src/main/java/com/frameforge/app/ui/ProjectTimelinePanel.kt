@@ -366,6 +366,9 @@ private fun TimelineClipRow(
                     else "Starts ${formatTimelineDuration(clip.timelineStartMs)} • Duration unknown • Gap ${formatTimelineDuration(clip.gapBeforeMs)}",
                     color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1
                 )
+                if (clip.mimeType.startsWith("audio/")) {
+                    AudioWaveform(uriText = clip.mediaUri)
+                }
             }
             IconButton(onClick = onMoveUp, enabled = canMoveUp) { Icon(Icons.Default.ArrowUpward, "Move earlier") }
             IconButton(onClick = onMoveDown, enabled = canMoveDown) { Icon(Icons.Default.ArrowDownward, "Move later") }
