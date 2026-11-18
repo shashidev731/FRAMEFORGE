@@ -42,11 +42,27 @@ private val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+private val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN timelineStartMs INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("""
+            UPDATE timeline_clips AS clip
+            SET timelineStartMs = COALESCE((
+                SELECT SUM(MAX(COALESCE(previous.trimEndMs, previous.durationMs) - previous.trimStartMs, 0))
+                FROM timeline_clips AS previous
+                WHERE previous.projectId = clip.projectId
+                  AND previous.trackIndex = clip.trackIndex
+                  AND previous.position < clip.position
+            ), 0)
+        """.trimIndent())
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = Room.databaseBuilder(applicationContext, FrameforgeDatabase::class.java, "frameforge.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .build()
         setContent {
             FrameforgeTheme {
