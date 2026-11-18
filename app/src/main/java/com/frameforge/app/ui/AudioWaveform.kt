@@ -28,16 +28,16 @@ import kotlin.math.abs
 import kotlin.math.max
 
 @Composable
-fun AudioWaveform(uriText: String, modifier: Modifier = Modifier) {
+fun AudioWaveform(uriText: String, durationMs: Long = 0L, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var peaks by remember(uriText) { mutableStateOf<List<Float>>(emptyList()) }
-    var failed by remember(uriText) { mutableStateOf(false) }
+    var peaks by remember(uriText, durationMs) { mutableStateOf<List<Float>>(emptyList()) }
+    var failed by remember(uriText, durationMs) { mutableStateOf(false) }
 
-    LaunchedEffect(uriText) {
+    LaunchedEffect(uriText, durationMs) {
         peaks = emptyList()
         failed = false
         try {
-            peaks = withContext(Dispatchers.IO) { extractAudioWaveformPeaks(context, Uri.parse(uriText)) }
+            peaks = withContext(Dispatchers.IO) { extractAudioWaveformPeaks(context, Uri.parse(uriText), durationMs = durationMs) }
             failed = peaks.isEmpty()
         } catch (_: Exception) {
             failed = true
@@ -72,7 +72,8 @@ fun AudioWaveform(uriText: String, modifier: Modifier = Modifier) {
 internal suspend fun extractAudioWaveformPeaks(
     context: android.content.Context,
     uri: Uri,
-    bucketCount: Int = 180
+    bucketCount: Int = 180,
+    durationMs: Long = 0L
 ): List<Float> {
     require(bucketCount > 0)
     val extractor = MediaExtractor()
@@ -157,7 +158,7 @@ internal suspend fun extractAudioWaveformPeaks(
                                 ((totalSamples * bucketCount) / expectedSamples).toInt().coerceIn(0, bucketCount - 1)
                             } else {
                                 ((info.presentationTimeUs.coerceAtLeast(0L) * bucketCount) /
-                                    max(1L, durationUs)).toInt().coerceIn(0, bucketCount - 1)
+                                    max(1L, effectiveDurationUs)).toInt().coerceIn(0, bucketCount - 1)
                             }
                             peaks[bucket] = max(peaks[bucket], amplitude)
                             totalSamples++
