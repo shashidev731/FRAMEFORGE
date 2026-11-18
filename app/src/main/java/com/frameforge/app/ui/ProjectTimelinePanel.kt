@@ -107,6 +107,28 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             enabled = gapDraftMs.toLong() != selectedClip.gapBeforeMs
                         ) { Text("Apply position") }
                     }
+                    val sameTrackClips = clips.filter { it.trackIndex == selectedClip.trackIndex }.sortedBy { it.position }
+                    if (sameTrackClips.size > 1) {
+                        var targetPosition by remember(selectedClip.clipId, selectedClip.position) {
+                            mutableFloatStateOf(selectedClip.position.toFloat())
+                        }
+                        Text("Clip order • ${selectedClip.position + 1} of ${sameTrackClips.size}",
+                            color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Slider(
+                            value = targetPosition.coerceIn(0f, sameTrackClips.lastIndex.toFloat()),
+                            onValueChange = { targetPosition = it },
+                            valueRange = 0f..sameTrackClips.lastIndex.toFloat(),
+                            steps = (sameTrackClips.size - 2).coerceAtLeast(0)
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Move anywhere in this track", color = SurfaceWhite.copy(alpha = .65f),
+                                style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                            Button(
+                                onClick = { scope.launch { repository.moveToPosition(selectedClip.clipId, targetPosition.toInt()) } },
+                                enabled = targetPosition.toInt() != selectedClip.position
+                            ) { Text("Move clip") }
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(
                             onClick = {
