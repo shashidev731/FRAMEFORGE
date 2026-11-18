@@ -33,13 +33,8 @@ interface TimelineClipDao {
 
     @Transaction
     suspend fun reflowTrack(projectId: String, trackIndex: Int) {
-        var cursorMs = 0L
-        clipsInTrack(projectId, trackIndex).forEach { clip ->
-            setTimelineStart(clip.clipId, cursorMs)
-            val endMs = clip.trimEndMs ?: clip.durationMs
-            val visibleDurationMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
-            cursorMs = if (visibleDurationMs > Long.MAX_VALUE - cursorMs) Long.MAX_VALUE
-                else cursorMs + visibleDurationMs
+        withSequentialTimelineOffsets(clipsInTrack(projectId, trackIndex)).forEach { clip ->
+            setTimelineStart(clip.clipId, clip.timelineStartMs)
         }
     }
 
