@@ -17,3 +17,25 @@ internal fun withSequentialTimelineOffsets(clips: List<TimelineClipEntity>): Lis
         positioned
     }
 }
+
+/**
+ * Reorders one track's clips and recalculates their starts without changing
+ * per-clip trims or gap settings.
+ */
+internal fun reorderTimelineClips(
+    clips: List<TimelineClipEntity>,
+    movingClipId: String,
+    requestedPosition: Int
+): List<TimelineClipEntity> {
+    val ordered = clips.sortedBy { it.position }
+    if (ordered.size < 2) return withSequentialTimelineOffsets(ordered)
+    val source = ordered.indexOfFirst { it.clipId == movingClipId }
+    if (source < 0) return withSequentialTimelineOffsets(ordered)
+    val target = requestedPosition.coerceIn(0, ordered.lastIndex)
+    if (source == target) return withSequentialTimelineOffsets(ordered)
+    val reordered = ordered.toMutableList().apply {
+        val moving = removeAt(source)
+        add(target, moving)
+    }.mapIndexed { index, clip -> clip.copy(position = index) }
+    return withSequentialTimelineOffsets(reordered)
+}
