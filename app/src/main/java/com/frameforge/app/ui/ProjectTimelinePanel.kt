@@ -52,7 +52,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Project timeline", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Track 1 • ${clips.size} clip(s)", color = Muted, style = MaterialTheme.typography.bodySmall)
+                Text("${clips.map { it.trackIndex }.distinct().size} track(s) • ${clips.size} clip(s)", color = Muted, style = MaterialTheme.typography.bodySmall)
             }
             Box {
                 Button(onClick = { addMenu = true }, enabled = available.isNotEmpty()) {
@@ -229,21 +229,30 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp).padding(8.dp),
                     verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    itemsIndexed(clips, key = { _, clip -> clip.clipId }) { index, clip ->
-                        TimelineClipRow(
-                            clip = clip, index = index, selected = selectedClipId == clip.clipId,
-                            canMoveUp = index > 0, canMoveDown = index < clips.lastIndex,
-                            onSelect = { selectedClipId = clip.clipId },
-                            onMoveUp = { scope.launch { repository.moveEarlier(clip.clipId) } },
-                            onMoveDown = { scope.launch { repository.moveLater(clip.clipId) } },
-                            onRemove = { scope.launch { repository.remove(clip.clipId) } }
-                        )
+                    clips.groupBy { it.trackIndex }.toSortedMap().forEach { (trackIndex, trackClips) ->
+                        item(key = "track-header-$trackIndex") {
+                            Text(
+                                if (trackIndex == 1) "AUDIO TRACK" else if (trackIndex == 0) "VIDEO / IMAGE TRACK" else "OVERLAY TRACK $trackIndex",
+                                color = Accent, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
+                            )
+                        }
+                        itemsIndexed(trackClips, key = { _, clip -> clip.clipId }) { index, clip ->
+                            TimelineClipRow(
+                                clip = clip, index = index, selected = selectedClipId == clip.clipId,
+                                canMoveUp = index > 0, canMoveDown = index < trackClips.lastIndex,
+                                onSelect = { selectedClipId = clip.clipId },
+                                onMoveUp = { scope.launch { repository.moveEarlier(clip.clipId) } },
+                                onMoveDown = { scope.launch { repository.moveLater(clip.clipId) } },
+                                onRemove = { scope.launch { repository.remove(clip.clipId) } }
+                            )
+                        }
                     }
                 }
             }
         }
         Text(
-            "Clips are saved per project. You can preview image/video clips, reorder them, and split a source into two non-destructive timeline segments. Multi-track compositing and final timeline rendering are not connected yet.",
+            "Clips are saved per project. Audio is placed on its own track; video and image clips share the visual track. Track playback, synchronization, compositing, and final timeline rendering are not connected yet.",
             color = Muted, style = MaterialTheme.typography.bodySmall
         )
     }
