@@ -7,6 +7,8 @@ package com.frameforge.app.data
 internal fun withSequentialTimelineOffsets(clips: List<TimelineClipEntity>): List<TimelineClipEntity> {
     var cursorMs = 0L
     return clips.sortedBy { it.position }.map { clip ->
+        val gapMs = clip.gapBeforeMs.coerceAtLeast(0L)
+        cursorMs = if (gapMs > Long.MAX_VALUE - cursorMs) Long.MAX_VALUE else cursorMs + gapMs
         val positioned = clip.copy(timelineStartMs = cursorMs)
         val endMs = clip.trimEndMs ?: clip.durationMs
         val visibleDurationMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
