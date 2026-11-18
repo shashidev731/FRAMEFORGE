@@ -28,6 +28,21 @@ interface TimelineClipDao {
     @Query("SELECT * FROM timeline_clips WHERE projectId = :projectId AND trackIndex = :trackIndex ORDER BY position ASC")
     suspend fun clipsInTrack(projectId: String, trackIndex: Int): List<TimelineClipEntity>
 
+    @Query("UPDATE timeline_clips SET timelineStartMs = :startMs WHERE clipId = :clipId")
+    suspend fun setTimelineStart(clipId: String, startMs: Long)
+
+    @Transaction
+    suspend fun reflowTrack(projectId: String, trackIndex: Int) {
+        var cursorMs = 0L
+        clipsInTrack(projectId, trackIndex).forEach { clip ->
+            setTimelineStart(clip.clipId, cursorMs)
+            val endMs = clip.trimEndMs ?: clip.durationMs
+            val visibleDurationMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
+            cursorMs = if (visibleDurationMs > Long.MAX_VALUE - cursorMs) Long.MAX_VALUE
+                else cursorMs + visibleDurationMs
+        }
+    }
+
     @Query("UPDATE timeline_clips SET position = -position - 1 WHERE projectId = :projectId AND trackIndex = :trackIndex")
     suspend fun moveTrackToTemporaryPositions(projectId: String, trackIndex: Int)
 
@@ -38,6 +53,7 @@ interface TimelineClipDao {
         val remaining = clipsInTrack(clip.projectId, clip.trackIndex)
         moveTrackToTemporaryPositions(clip.projectId, clip.trackIndex)
         remaining.forEachIndexed { index, item -> setPosition(item.clipId, index) }
+        reflowTrack(clip.projectId, clip.trackIndex)
     }
 
     @Query("UPDATE timeline_clips SET position = -1 WHERE clipId = :clipId")
@@ -69,6 +85,7 @@ interface TimelineClipDao {
             }
         }
         ordered.forEachIndexed { index, item -> setPosition(item.clipId, index) }
+        reflowTrack(current.projectId, current.trackIndex)
         return true
     }
 
@@ -81,6 +98,7 @@ interface TimelineClipDao {
         moveToTemporary(current.clipId)
         setPosition(neighbor.clipId, current.position)
         setPosition(current.clipId, neighbor.position)
+        reflowTrack(current.projectId, current.trackIndex)
     }
 
     @Query("SELECT * FROM timeline_clips WHERE projectId = :projectId AND trackIndex = :trackIndex AND position = :position LIMIT 1")
