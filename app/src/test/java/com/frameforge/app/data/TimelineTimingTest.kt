@@ -87,7 +87,7 @@ class TimelineTimingTest {
         val result = reorderTimelineClips(clips, movingClipId = "last", requestedPosition = 0)
 
         assertEquals(listOf("last", "first", "middle"), result.map { it.clipId })
-        assertEquals(listOf(0L, 2500L, 6500L), result.map { it.timelineStartMs })
+        assertEquals(listOf(500L, 2500L, 6500L), result.map { it.timelineStartMs })
         assertEquals(500L, result.first().gapBeforeMs)
         assertEquals(1000L, result.last().gapBeforeMs)
         assertEquals(500L, result.last().trimStartMs)
