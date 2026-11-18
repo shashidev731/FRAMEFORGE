@@ -76,4 +76,36 @@ class TimelineTimingTest {
         assertEquals(0L, result[0].timelineStartMs)
         assertEquals(5000L, result[1].timelineStartMs)
     }
+    @Test
+    fun movingClipToArbitraryPositionReordersAndReflowsOffsets() {
+        val clips = listOf(
+            clip("first", 0, 3000L),
+            clip("middle", 1, 4000L, trimStartMs = 500L, trimEndMs = 2500L, gapBeforeMs = 1000L),
+            clip("last", 2, 2000L, gapBeforeMs = 500L)
+        )
+
+        val result = reorderTimelineClips(clips, movingClipId = "last", requestedPosition = 0)
+
+        assertEquals(listOf("last", "first", "middle"), result.map { it.clipId })
+        assertEquals(listOf(0L, 2500L, 6500L), result.map { it.timelineStartMs })
+        assertEquals(500L, result.first().gapBeforeMs)
+        assertEquals(1000L, result.last().gapBeforeMs)
+        assertEquals(500L, result.last().trimStartMs)
+        assertEquals(2500L, result.last().trimEndMs)
+    }
+
+    @Test
+    fun arbitraryMoveClampsTargetAndKeepsOtherTrackOutOfResult() {
+        val clips = listOf(
+            clip("a", 0, 1000L),
+            clip("b", 1, 1000L),
+            clip("c", 2, 1000L)
+        )
+
+        val result = reorderTimelineClips(clips, movingClipId = "a", requestedPosition = 99)
+
+        assertEquals(listOf("b", "c", "a"), result.map { it.clipId })
+        assertEquals(listOf(0L, 1000L, 2000L), result.map { it.timelineStartMs })
+    }
+
 }
