@@ -86,7 +86,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                 Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Selected clip: " + selectedClip.displayName, color = SurfaceWhite, maxLines = 1, fontWeight = FontWeight.SemiBold)
                     var gapDraftMs by remember(selectedClip.clipId, selectedClip.gapBeforeMs) {
-                        mutableFloatStateOf(selectedClip.gapBeforeMs.coerceIn(0L, 60_000L).toFloat())
+                        mutableFloatStateOf(selectedClip.gapBeforeMs.coerceIn(0L, 600_000L).toFloat())
                     }
                     Text(
                         "Clip start offset: " + formatTimelineDuration(selectedClip.timelineStartMs) +
