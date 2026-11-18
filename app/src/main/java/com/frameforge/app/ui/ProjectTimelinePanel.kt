@@ -2,6 +2,7 @@ package com.frameforge.app.ui
 
 import android.net.Uri
 import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
 import android.widget.ImageView
 import android.widget.VideoView
 import android.widget.MediaController
@@ -12,6 +13,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.item
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -106,8 +108,74 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             },
                             modifier = Modifier.fillMaxWidth().height(210.dp)
                         )
+                    } else if (selectedClip.mimeType.startsWith("audio/")) {
+                        var audioPlayer by remember(selectedClip.clipId) { mutableStateOf<MediaPlayer?>(null) }
+                        var audioPlaying by remember(selectedClip.clipId) { mutableStateOf(false) }
+                        var audioLoading by remember(selectedClip.clipId) { mutableStateOf(false) }
+                        var audioError by remember(selectedClip.clipId) { mutableStateOf<String?>(null) }
+                        DisposableEffect(selectedClip.clipId) {
+                            onDispose {
+                                runCatching { audioPlayer?.stop() }
+                                runCatching { audioPlayer?.release() }
+                                audioPlayer = null
+                                audioPlaying = false
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                enabled = !audioLoading,
+                                onClick = {
+                                    val current = audioPlayer
+                                    if (current != null) {
+                                        runCatching {
+                                            if (current.isPlaying) {
+                                                current.pause()
+                                                audioPlaying = false
+                                            } else {
+                                                current.start()
+                                                audioPlaying = true
+                                            }
+                                        }.onFailure { audioError = it.message ?: "Audio playback failed" }
+                                    } else {
+                                        audioLoading = true
+                                        audioError = null
+                                        runCatching {
+                                            MediaPlayer().also { player ->
+                                                audioPlayer = player
+                                                player.setOnPreparedListener {
+                                                    audioLoading = false
+                                                    it.start()
+                                                    audioPlaying = true
+                                                }
+                                                player.setOnCompletionListener {
+                                                    audioPlaying = false
+                                                    runCatching { it.seekTo(0) }
+                                                }
+                                                player.setOnErrorListener { _, _, _ ->
+                                                    audioLoading = false
+                                                    audioPlaying = false
+                                                    audioError = "Unable to play this audio file."
+                                                    runCatching { audioPlayer?.release() }
+                                                    audioPlayer = null
+                                                    true
+                                                }
+                                                player.setDataSource(context, Uri.parse(selectedClip.mediaUri))
+                                                player.prepareAsync()
+                                            }
+                                        }.onFailure {
+                                            audioLoading = false
+                                            audioError = it.message ?: "Unable to open audio file."
+                                            runCatching { audioPlayer?.release() }
+                                            audioPlayer = null
+                                        }
+                                    }
+                                }
+                            ) { Text(if (audioLoading) "Loading…" else if (audioPlaying) "Pause audio" else "Play audio") }
+                            Text(audioError ?: "Audio preview", color = if (audioError == null) SurfaceWhite.copy(alpha = .75f) else MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
                     } else {
-                        Text("Audio clip selected. Audio playback and waveform controls are not connected yet.", color = SurfaceWhite.copy(alpha = .75f))
+                        Text("Unsupported media preview.", color = SurfaceWhite.copy(alpha = .75f))
                     }
                     if (selectedClip.durationMs > 0L) {
                         val durationFloat = selectedClip.durationMs.toFloat()
