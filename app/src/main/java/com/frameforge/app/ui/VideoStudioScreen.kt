@@ -182,11 +182,12 @@ private fun formatSeconds(value: Float): String {
 }
 
 private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: Long, endUs: Long) {
-    require(endUs > startUs) { "End time must be after start time" }
+    require(startUs >= 0L && endUs > startUs) { "Choose a valid trim range" }
     val extractor = MediaExtractor()
     var descriptor: ParcelFileDescriptor? = null
     var muxer: MediaMuxer? = null
     var muxerStarted = false
+    var completed = false
     try {
         extractor.setDataSource(context, input, null)
         descriptor = context.contentResolver.openFileDescriptor(output, "rw")
@@ -194,6 +195,7 @@ private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: L
         muxer = MediaMuxer(descriptor.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         val trackMap = IntArray(extractor.trackCount) { -1 }
         var selectedTracks = 0
+        var requestedBufferBytes = 1024 * 1024
         for (index in 0 until extractor.trackCount) {
             val format = extractor.getTrackFormat(index)
             val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
@@ -201,25 +203,31 @@ private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: L
                 trackMap[index] = muxer.addTrack(format)
                 extractor.selectTrack(index)
                 selectedTracks++
+                if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
+                    requestedBufferBytes = maxOf(requestedBufferBytes, format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE))
+                }
             }
         }
         require(selectedTracks > 0) { "No supported audio or video tracks were found" }
+        val buffer = ByteBuffer.allocate(requestedBufferBytes.coerceAtMost(64 * 1024 * 1024))
         muxer.start()
         muxerStarted = true
         extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-        val buffer = ByteBuffer.allocate(8 * 1024 * 1024)
         val info = MediaCodec.BufferInfo()
         var baseTimeUs = -1L
         var samplesWritten = 0
         while (true) {
             val sourceTrack = extractor.sampleTrackIndex
             val sampleTime = extractor.sampleTime
-            if (sourceTrack < 0 || sampleTime < 0 || sampleTime > endUs) break
+            if (sourceTrack < 0 || sampleTime < 0L || sampleTime > endUs) break
             val targetTrack = trackMap.getOrElse(sourceTrack) { -1 }
             if (targetTrack >= 0) {
                 buffer.clear()
                 val size = extractor.readSampleData(buffer, 0)
                 if (size < 0) break
+                if (size > buffer.capacity()) {
+                    throw IOException("A media sample exceeds the safe export buffer. Try a shorter or lower-resolution source.")
+                }
                 if (baseTimeUs < 0L) baseTimeUs = sampleTime
                 info.set(0, size, (sampleTime - baseTimeUs).coerceAtLeast(0L), extractor.sampleFlags)
                 muxer.writeSampleData(targetTrack, buffer, info)
@@ -230,10 +238,12 @@ private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: L
         require(samplesWritten > 0) { "No samples were available in the selected range" }
         muxer.stop()
         muxerStarted = false
+        completed = true
     } finally {
         if (muxerStarted) runCatching { muxer?.stop() }
         runCatching { muxer?.release() }
         runCatching { extractor.release() }
         runCatching { descriptor?.close() }
+        if (!completed) runCatching { context.contentResolver.delete(output, null, null) }
     }
 }
