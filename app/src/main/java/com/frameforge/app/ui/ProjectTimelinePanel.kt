@@ -84,19 +84,39 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                 Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Selected clip: " + selectedClip.displayName, color = SurfaceWhite, maxLines = 1, fontWeight = FontWeight.SemiBold)
                     Text("Gap before: " + formatTimelineDuration(selectedClip.gapBeforeMs), color = SurfaceWhite.copy(alpha = .8f), style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    repository.setGapBefore(selectedClip.clipId, (selectedClip.gapBeforeMs - 1000L).coerceAtLeast(0L))
+                                }
+                            },
+                            enabled = selectedClip.gapBeforeMs > 0L,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) { Text("−1s") }
                         OutlinedButton(
                             onClick = {
                                 scope.launch {
                                     repository.setGapBefore(selectedClip.clipId, (selectedClip.gapBeforeMs + 1000L).coerceAtMost(600_000L))
                                 }
                             },
-                            enabled = selectedClip.gapBeforeMs < 600_000L
-                        ) { Text("Add 1s gap") }
+                            enabled = selectedClip.gapBeforeMs < 600_000L,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) { Text("+1s") }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    repository.setGapBefore(selectedClip.clipId, (selectedClip.gapBeforeMs + 5000L).coerceAtMost(600_000L))
+                                }
+                            },
+                            enabled = selectedClip.gapBeforeMs <= 595_000L,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) { Text("+5s") }
                         OutlinedButton(
                             onClick = { scope.launch { repository.setGapBefore(selectedClip.clipId, 0L) } },
-                            enabled = selectedClip.gapBeforeMs > 0L
-                        ) { Text("Clear gap") }
+                            enabled = selectedClip.gapBeforeMs > 0L,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) { Text("Reset") }
                     }
                     if (selectedClip.mimeType.startsWith("video/")) {
                         key(selectedClip.clipId) {
