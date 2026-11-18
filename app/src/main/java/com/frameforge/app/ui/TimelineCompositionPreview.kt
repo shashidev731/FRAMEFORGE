@@ -35,6 +35,7 @@ import androidx.media3.transformer.ProgressHolder
 import java.io.File
 import kotlinx.coroutines.delay
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
@@ -240,64 +241,79 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
 
 @OptIn(UnstableApi::class)
 private fun buildTimelineComposition(clips: List<TimelineClipEntity>): Composition? {
-    val visualItems = clips.asSequence()
+    val visualClips = clips.asSequence()
         .filter { it.trackIndex == 0 && (it.mimeType.startsWith("video/") || it.mimeType.startsWith("image/")) }
-        .sortedBy { it.position }
-        .mapNotNull { clip ->
-            val endMs = clip.trimEndMs ?: clip.durationMs
-            val durationMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
-            if (durationMs <= 0L) return@mapNotNull null
-
-            val mediaItemBuilder = MediaItem.Builder()
-                .setUri(Uri.parse(clip.mediaUri))
-                .setMimeType(clip.mimeType)
-
-            if (clip.mimeType.startsWith("image/")) {
-                mediaItemBuilder.setImageDurationMs(durationMs)
-                EditedMediaItem.Builder(mediaItemBuilder.build()).build()
-            } else {
-                mediaItemBuilder.setClippingConfiguration(
-                    MediaItem.ClippingConfiguration.Builder()
-                        .setStartPositionMs(clip.trimStartMs)
-                        .setEndPositionMs(endMs)
-                        .build()
-                )
-                EditedMediaItem.Builder(mediaItemBuilder.build())
-                    .setDurationUs(durationMs * 1_000L)
-                    .build()
-            }
-        }
+        .sortedBy { it.timelineStartMs }
         .toList()
 
-    if (visualItems.isEmpty()) return null
-
-    val audioItems = clips.asSequence()
+    val audioClips = clips.asSequence()
         .filter { it.trackIndex == 1 && it.mimeType.startsWith("audio/") }
-        .sortedBy { it.position }
-        .mapNotNull { clip ->
-            val endMs = clip.trimEndMs ?: clip.durationMs
-            val durationMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
-            if (durationMs <= 0L) return@mapNotNull null
-
-            val mediaItem = MediaItem.Builder()
-                .setUri(Uri.parse(clip.mediaUri))
-                .setMimeType(clip.mimeType)
-                .setClippingConfiguration(
-                    MediaItem.ClippingConfiguration.Builder()
-                        .setStartPositionMs(clip.trimStartMs)
-                        .setEndPositionMs(endMs)
-                        .build()
-                )
-                .build()
-            EditedMediaItem.Builder(mediaItem)
-                .setDurationUs(durationMs * 1_000L)
-                .build()
-        }
+        .sortedBy { it.timelineStartMs }
         .toList()
+
+    if (visualClips.none { visibleDurationMs(it) > 0L }) return null
+
+    val visualSequence = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_VIDEO))
+    var visualCursorMs = 0L
+    visualClips.forEach { clip ->
+        val durationMs = visibleDurationMs(clip)
+        if (durationMs > 0L) {
+            require(clip.timelineStartMs >= visualCursorMs) {
+                "Visual clips overlap. Overlapping clip compositing is not supported yet."
+            }
+            val gapMs = clip.timelineStartMs - visualCursorMs
+            if (gapMs > 0L) visualSequence.addGap(gapMs * 1_000L)
+            visualSequence.addItem(buildEditedTimelineItem(clip, durationMs))
+            visualCursorMs = clip.timelineStartMs + durationMs
+        }
+    }
 
     val sequences = buildList {
-        add(EditedMediaItemSequence.withVideoFrom(visualItems))
-        if (audioItems.isNotEmpty()) add(EditedMediaItemSequence.withAudioFrom(audioItems))
+        add(visualSequence.build())
+        if (audioClips.any { visibleDurationMs(it) > 0L }) {
+            val audioSequence = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO))
+            var audioCursorMs = 0L
+            audioClips.forEach { clip ->
+                val durationMs = visibleDurationMs(clip)
+                if (durationMs > 0L) {
+                    require(clip.timelineStartMs >= audioCursorMs) {
+                        "Audio clips overlap. Overlapping audio mixing is not supported yet."
+                    }
+                    val gapMs = clip.timelineStartMs - audioCursorMs
+                    if (gapMs > 0L) audioSequence.addGap(gapMs * 1_000L)
+                    audioSequence.addItem(buildEditedTimelineItem(clip, durationMs))
+                    audioCursorMs = clip.timelineStartMs + durationMs
+                }
+            }
+            add(audioSequence.build())
+        }
     }
     return Composition.Builder(sequences).build()
+}
+
+private fun visibleDurationMs(clip: TimelineClipEntity): Long {
+    val endMs = clip.trimEndMs ?: clip.durationMs
+    return (endMs - clip.trimStartMs).coerceAtLeast(0L)
+}
+
+@OptIn(UnstableApi::class)
+private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long): EditedMediaItem {
+    val mediaItemBuilder = MediaItem.Builder()
+        .setUri(Uri.parse(clip.mediaUri))
+        .setMimeType(clip.mimeType)
+
+    if (clip.mimeType.startsWith("image/")) {
+        mediaItemBuilder.setImageDurationMs(durationMs)
+    } else {
+        val endMs = clip.trimEndMs ?: clip.durationMs
+        mediaItemBuilder.setClippingConfiguration(
+            MediaItem.ClippingConfiguration.Builder()
+                .setStartPositionMs(clip.trimStartMs)
+                .setEndPositionMs(endMs)
+                .build()
+        )
+    }
+    return EditedMediaItem.Builder(mediaItemBuilder.build())
+        .setDurationUs(durationMs * 1_000L)
+        .build()
 }
