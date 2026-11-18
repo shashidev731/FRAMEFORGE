@@ -83,7 +83,28 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             Surface(shape = RoundedCornerShape(16.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Selected clip: " + selectedClip.displayName, color = SurfaceWhite, maxLines = 1, fontWeight = FontWeight.SemiBold)
-                    Text("Gap before: " + formatTimelineDuration(selectedClip.gapBeforeMs), color = SurfaceWhite.copy(alpha = .8f), style = MaterialTheme.typography.labelMedium)
+                    var gapDraftMs by remember(selectedClip.clipId, selectedClip.gapBeforeMs) {
+                        mutableFloatStateOf(selectedClip.gapBeforeMs.coerceIn(0L, 60_000L).toFloat())
+                    }
+                    Text(
+                        "Clip start offset: " + formatTimelineDuration(selectedClip.timelineStartMs) +
+                            " • Gap before: " + formatTimelineDuration(selectedClip.gapBeforeMs),
+                        color = SurfaceWhite.copy(alpha = .8f), style = MaterialTheme.typography.labelMedium
+                    )
+                    Slider(
+                        value = gapDraftMs,
+                        onValueChange = { gapDraftMs = it },
+                        valueRange = 0f..60_000f,
+                        steps = 59
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Adjust gap up to 60 seconds", color = SurfaceWhite.copy(alpha = .65f),
+                            style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                        Button(
+                            onClick = { scope.launch { repository.setGapBefore(selectedClip.clipId, gapDraftMs.toLong()) } },
+                            enabled = gapDraftMs.toLong() != selectedClip.gapBeforeMs
+                        ) { Text("Apply position") }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(
                             onClick = {
