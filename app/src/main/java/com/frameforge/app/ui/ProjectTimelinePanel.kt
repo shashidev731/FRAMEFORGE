@@ -83,6 +83,21 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             Surface(shape = RoundedCornerShape(16.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Selected clip: " + selectedClip.displayName, color = SurfaceWhite, maxLines = 1, fontWeight = FontWeight.SemiBold)
+                    Text("Gap before: " + formatTimelineDuration(selectedClip.gapBeforeMs), color = SurfaceWhite.copy(alpha = .8f), style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    repository.setGapBefore(selectedClip.clipId, (selectedClip.gapBeforeMs + 1000L).coerceAtMost(600_000L))
+                                }
+                            },
+                            enabled = selectedClip.gapBeforeMs < 600_000L
+                        ) { Text("Add 1s gap") }
+                        OutlinedButton(
+                            onClick = { scope.launch { repository.setGapBefore(selectedClip.clipId, 0L) } },
+                            enabled = selectedClip.gapBeforeMs > 0L
+                        ) { Text("Clear gap") }
+                    }
                     if (selectedClip.mimeType.startsWith("video/")) {
                         key(selectedClip.clipId) {
                             AndroidView(
@@ -282,8 +297,8 @@ private fun TimelineClipRow(
                 val clipEndMs = clip.trimEndMs ?: clip.durationMs
                 val clipLengthMs = (clipEndMs - clip.trimStartMs).coerceAtLeast(0L)
                 Text(
-                    if (clip.durationMs > 0L) "Starts ${formatTimelineDuration(clip.timelineStartMs)} • ${formatTimelineDuration(clipLengthMs)}"
-                    else "Starts ${formatTimelineDuration(clip.timelineStartMs)} • Duration unknown",
+                    if (clip.durationMs > 0L) "Starts ${formatTimelineDuration(clip.timelineStartMs)} • ${formatTimelineDuration(clipLengthMs)} • Gap ${formatTimelineDuration(clip.gapBeforeMs)}"
+                    else "Starts ${formatTimelineDuration(clip.timelineStartMs)} • Duration unknown • Gap ${formatTimelineDuration(clip.gapBeforeMs)}",
                     color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1
                 )
             }
