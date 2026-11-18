@@ -22,6 +22,7 @@ class TimelineRepository(private val dao: TimelineClipDao) {
                 createdAt = System.currentTimeMillis()
             )
         )
+        dao.reflowTrack(projectId, track)
     }
 
     suspend fun remove(clipId: String) = dao.removeAndCompact(clipId)
@@ -29,6 +30,7 @@ class TimelineRepository(private val dao: TimelineClipDao) {
     suspend fun updateTrim(clip: TimelineClipEntity, startMs: Long, endMs: Long) {
         require(startMs >= 0L && endMs > startMs && endMs <= clip.durationMs)
         dao.updateTrimRange(clip.clipId, startMs, endMs)
+        dao.reflowTrack(clip.projectId, clip.trackIndex)
     }
     suspend fun moveEarlier(clipId: String) = dao.move(clipId, -1)
     suspend fun moveLater(clipId: String) = dao.move(clipId, 1)
