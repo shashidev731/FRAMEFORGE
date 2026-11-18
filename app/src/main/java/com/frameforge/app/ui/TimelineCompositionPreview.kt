@@ -84,9 +84,9 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
                 )
                 else -> AndroidView(
                     factory = { viewContext ->
-                        PlayerView(viewContext).apply {
-                            useController = true
-                            player = player
+                        PlayerView(viewContext).also { view ->
+                            view.useController = true
+                            view.player = player
                         }
                     },
                     update = { view -> view.player = player },
