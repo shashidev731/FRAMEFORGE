@@ -41,6 +41,13 @@ interface TimelineClipDao {
         }
     }
 
+    @Transaction
+    suspend fun updateGapBeforeAndReflow(clipId: String, gapMs: Long) {
+        val clip = find(clipId) ?: return
+        setGapBefore(clipId, gapMs.coerceAtLeast(0L))
+        reflowTrack(clip.projectId, clip.trackIndex)
+    }
+
     @Query("UPDATE timeline_clips SET position = -position - 1 WHERE projectId = :projectId AND trackIndex = :trackIndex")
     suspend fun moveTrackToTemporaryPositions(projectId: String, trackIndex: Int)
 
