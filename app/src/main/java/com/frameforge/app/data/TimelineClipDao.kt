@@ -106,6 +106,23 @@ interface TimelineClipDao {
         reflowTrack(current.projectId, current.trackIndex)
     }
 
+    @Transaction
+    suspend fun moveToPosition(clipId: String, requestedPosition: Int) {
+        val current = find(clipId) ?: return
+        val ordered = clipsInTrack(current.projectId, current.trackIndex).sortedBy { it.position }
+        if (ordered.size < 2) return
+        val target = requestedPosition.coerceIn(0, ordered.lastIndex)
+        val source = ordered.indexOfFirst { it.clipId == clipId }
+        if (source < 0 || source == target) return
+        val reordered = ordered.toMutableList().apply {
+            val moving = removeAt(source)
+            add(target, moving)
+        }
+        moveTrackToTemporaryPositions(current.projectId, current.trackIndex)
+        reordered.forEachIndexed { index, clip -> setPosition(clip.clipId, index) }
+        reflowTrack(current.projectId, current.trackIndex)
+    }
+
     @Query("SELECT * FROM timeline_clips WHERE projectId = :projectId AND trackIndex = :trackIndex AND position = :position LIMIT 1")
     suspend fun findAt(projectId: String, trackIndex: Int, position: Int): TimelineClipEntity?
 
