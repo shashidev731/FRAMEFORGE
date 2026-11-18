@@ -6,7 +6,7 @@ plugins {
 }
 android {
     namespace = "com.frameforge.app"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.frameforge.app"
         minSdk = 26
@@ -34,6 +34,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.8.5")
+    implementation("androidx.media3:media3-common:1.9.0")
+    implementation("androidx.media3:media3-transformer:1.9.0")
+    implementation("androidx.media3:media3-ui:1.9.0")
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
