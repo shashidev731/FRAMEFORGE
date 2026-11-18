@@ -6,7 +6,7 @@ plugins {
 }
 android {
     namespace = "com.frameforge.app"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.frameforge.app"
         minSdk = 26
