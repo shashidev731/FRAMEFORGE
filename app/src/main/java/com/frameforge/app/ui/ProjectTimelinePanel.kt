@@ -287,7 +287,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             }
         }
         Text(
-            "Clips are saved per project. Audio is placed on its own track; video and image clips share the visual track. Track playback, synchronization, compositing, and final timeline rendering are not connected yet.",
+            "Clips are saved per project. Preview and MP4 export support the main visual sequence plus one separate audio sequence, including trims and gaps. Overlapping clips, extra overlay tracks, transitions, and multiple simultaneous audio tracks are not supported yet.",
             color = Muted, style = MaterialTheme.typography.bodySmall
         )
     }
