@@ -9,6 +9,8 @@ import android.widget.MediaController
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -300,7 +302,8 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                                 onSelect = { selectedClipId = clip.clipId },
                                 onMoveUp = { scope.launch { repository.moveEarlier(clip.clipId) } },
                                 onMoveDown = { scope.launch { repository.moveLater(clip.clipId) } },
-                                onRemove = { scope.launch { repository.remove(clip.clipId) } }
+                                onRemove = { scope.launch { repository.remove(clip.clipId) } },
+                                onDragStep = { direction -> scope.launch { if (direction < 0) repository.moveEarlier(clip.clipId) else repository.moveLater(clip.clipId) } }
                             )
                         }
                     }
@@ -317,11 +320,32 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
 @Composable
 private fun TimelineClipRow(
     clip: TimelineClipEntity, index: Int, selected: Boolean, canMoveUp: Boolean, canMoveDown: Boolean,
-    onSelect: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit
+    onSelect: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit,
+    onDragStep: (Int) -> Unit
 ) {
     Surface(shape = RoundedCornerShape(12.dp), color = if (selected) SurfaceWhite else Canvas,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Accent else Line),
-        modifier = Modifier.clickable(onClick = onSelect)) {
+        modifier = Modifier
+            .pointerInput(clip.clipId, canMoveUp, canMoveDown) {
+                var accumulated = 0f
+                detectDragGesturesAfterLongPress(
+                    onDragEnd = { accumulated = 0f },
+                    onDragCancel = { accumulated = 0f },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        accumulated += dragAmount.y
+                        val threshold = 48.dp.toPx()
+                        if (accumulated <= -threshold && canMoveUp) {
+                            onDragStep(-1)
+                            accumulated = 0f
+                        } else if (accumulated >= threshold && canMoveDown) {
+                            onDragStep(1)
+                            accumulated = 0f
+                        }
+                    }
+                )
+            }
+            .clickable(onClick = onSelect)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${index + 1}", color = Accent, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(9.dp))
