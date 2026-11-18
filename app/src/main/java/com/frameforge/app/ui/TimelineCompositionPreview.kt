@@ -59,6 +59,7 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
     val player = remember(context) { CompositionPlayer.Builder(context).build() }
     var exportTransformer by remember { mutableStateOf<Transformer?>(null) }
     var exportFile by remember { mutableStateOf<File?>(null) }
+    var activeOutputFile by remember { mutableStateOf<File?>(null) }
     var exportStatus by remember { mutableStateOf("Ready to export") }
     var exportError by remember { mutableStateOf<String?>(null) }
     var exportProgress by remember { mutableStateOf(0) }
@@ -67,6 +68,8 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
         onDispose {
             player.release()
             runCatching { exportTransformer?.cancel() }
+            activeOutputFile?.delete()
+            activeOutputFile = null
         }
     }
 
@@ -159,10 +162,13 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
                             exportError = null
                             exportProgress = 0
                             exportStatus = "Starting export…"
+                            activeOutputFile = output
                             val transformer = Transformer.Builder(context)
                                 .addListener(object : Transformer.Listener {
                                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                                        activeOutputFile = null
                                         exportFile = output
+                                        exportProgress = 100
                                         exportStatus = "Export complete"
                                         exportTransformer = null
                                     }
@@ -173,6 +179,7 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
                                         exportException: ExportException
                                     ) {
                                         output.delete()
+                                        activeOutputFile = null
                                         exportError = exportException.message ?: "The timeline could not be exported."
                                         exportStatus = "Export failed"
                                         exportTransformer = null
@@ -184,6 +191,7 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
                                 .onSuccess { exportStatus = "Exporting MP4…" }
                                 .onFailure {
                                     output.delete()
+                                    activeOutputFile = null
                                     exportError = it.message ?: "Unable to start export."
                                     exportStatus = "Export failed"
                                     exportTransformer = null
@@ -193,9 +201,10 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
                     if (exportTransformer != null) {
                         OutlinedButton(onClick = {
                             runCatching { exportTransformer?.cancel() }
+                            activeOutputFile?.delete()
+                            activeOutputFile = null
                             exportTransformer = null
                             exportStatus = "Export cancelled"
-                            exportFile?.delete()
                             exportFile = null
                         }) { Text("Cancel") }
                     }
