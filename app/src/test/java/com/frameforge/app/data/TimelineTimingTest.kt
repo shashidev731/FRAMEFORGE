@@ -9,7 +9,8 @@ class TimelineTimingTest {
         position: Int,
         durationMs: Long,
         trimStartMs: Long = 0L,
-        trimEndMs: Long? = null
+        trimEndMs: Long? = null,
+        gapBeforeMs: Long = 0L
     ) = TimelineClipEntity(
         clipId = id,
         projectId = "project",
@@ -21,6 +22,7 @@ class TimelineTimingTest {
         trimStartMs = trimStartMs,
         trimEndMs = trimEndMs,
         durationMs = durationMs,
+        gapBeforeMs = gapBeforeMs,
         createdAt = 1L
     )
 
@@ -47,6 +49,19 @@ class TimelineTimingTest {
         val result = withSequentialTimelineOffsets(clips)
 
         assertEquals(listOf(0L, 0L), result.map { it.timelineStartMs })
+    }
+
+    @Test
+    fun explicitGapIsIncludedBeforeClipAndPreservedOnReflow() {
+        val clips = listOf(
+            clip("first", position = 0, durationMs = 3000L),
+            clip("second", position = 1, durationMs = 2000L, gapBeforeMs = 1500L),
+            clip("third", position = 2, durationMs = 1000L)
+        )
+
+        val result = withSequentialTimelineOffsets(clips)
+
+        assertEquals(listOf(0L, 4500L, 6500L), result.map { it.timelineStartMs })
     }
 
     @Test
