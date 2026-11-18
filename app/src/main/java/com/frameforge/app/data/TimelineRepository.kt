@@ -32,6 +32,8 @@ class TimelineRepository(private val dao: TimelineClipDao) {
         dao.updateTrimRange(clip.clipId, startMs, endMs)
         dao.reflowTrack(clip.projectId, clip.trackIndex)
     }
+    suspend fun setGapBefore(clipId: String, gapMs: Long) =
+        dao.updateGapBeforeAndReflow(clipId, gapMs.coerceAtLeast(0L))
     suspend fun moveEarlier(clipId: String) = dao.move(clipId, -1)
     suspend fun moveLater(clipId: String) = dao.move(clipId, 1)
 }
