@@ -367,7 +367,7 @@ private fun TimelineClipRow(
                     color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1
                 )
                 if (clip.mimeType.startsWith("audio/")) {
-                    AudioWaveform(uriText = clip.mediaUri)
+                    AudioWaveform(uriText = clip.mediaUri, durationMs = clip.durationMs)
                 }
             }
             IconButton(onClick = onMoveUp, enabled = canMoveUp) { Icon(Icons.Default.ArrowUpward, "Move earlier") }
