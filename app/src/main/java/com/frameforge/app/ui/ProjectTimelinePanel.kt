@@ -278,7 +278,13 @@ private fun TimelineClipRow(
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(clip.displayName, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(clip.mimeType, color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                val clipEndMs = clip.trimEndMs ?: clip.durationMs
+                val clipLengthMs = (clipEndMs - clip.trimStartMs).coerceAtLeast(0L)
+                Text(
+                    if (clip.durationMs > 0L) "Starts ${formatTimelineDuration(clip.timelineStartMs)} • ${formatTimelineDuration(clipLengthMs)}"
+                    else "Starts ${formatTimelineDuration(clip.timelineStartMs)} • Duration unknown",
+                    color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1
+                )
             }
             IconButton(onClick = onMoveUp, enabled = canMoveUp) { Icon(Icons.Default.ArrowUpward, "Move earlier") }
             IconButton(onClick = onMoveDown, enabled = canMoveDown) { Icon(Icons.Default.ArrowDownward, "Move later") }
