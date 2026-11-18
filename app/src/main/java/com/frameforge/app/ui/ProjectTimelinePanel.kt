@@ -96,11 +96,11 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                     Slider(
                         value = gapDraftMs,
                         onValueChange = { gapDraftMs = it },
-                        valueRange = 0f..60_000f,
-                        steps = 59
+                        valueRange = 0f..600_000f,
+                        steps = 599
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Adjust gap up to 60 seconds", color = SurfaceWhite.copy(alpha = .65f),
+                        Text("Adjust gap up to 10 minutes", color = SurfaceWhite.copy(alpha = .65f),
                             style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
                         Button(
                             onClick = { scope.launch { repository.setGapBefore(selectedClip.clipId, gapDraftMs.toLong()) } },
