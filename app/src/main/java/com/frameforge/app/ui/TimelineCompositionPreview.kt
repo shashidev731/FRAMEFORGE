@@ -295,11 +295,11 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): Compositi
 
     val sequences = buildList {
         add(visualSequence.build())
-        if (audioClips.any { visibleDurationMs(it) > 0L }) {
+        if (audioClips.any { visibleClipDurationMs(it) > 0L }) {
             val audioSequence = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO))
             var audioCursorMs = 0L
             audioClips.forEach { clip ->
-                val durationMs = visibleDurationMs(clip)
+                val durationMs = visibleClipDurationMs(clip)
                 if (durationMs > 0L) {
                     require(clip.timelineStartMs >= audioCursorMs) {
                         "Audio clips overlap. Overlapping audio mixing is not supported yet."
