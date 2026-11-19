@@ -328,10 +328,11 @@ private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long):
     if (clip.mimeType.startsWith("image/")) {
         mediaItemBuilder.setImageDurationMs(durationMs)
     } else {
-        val endMs = clip.trimEndMs ?: clip.durationMs
+        val startMs = normalizedTrimStartMs(clip)
+        val endMs = normalizedTrimEndMs(clip)
         mediaItemBuilder.setClippingConfiguration(
             MediaItem.ClippingConfiguration.Builder()
-                .setStartPositionMs(clip.trimStartMs)
+                .setStartPositionMs(startMs)
                 .setEndPositionMs(endMs)
                 .build()
         )
