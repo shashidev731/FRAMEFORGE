@@ -313,10 +313,11 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): Compositi
     return Composition.Builder(sequences).build()
 }
 
-private fun visibleDurationMs(clip: TimelineClipEntity): Long {
-    val endMs = clip.trimEndMs ?: clip.durationMs
-    return (endMs - clip.trimStartMs).coerceAtLeast(0L)
-}
+private fun normalizedTrimStartMs(clip: TimelineClipEntity): Long = clip.trimStartMs.coerceIn(0L, clip.durationMs.coerceAtLeast(0L))
+
+private fun normalizedTrimEndMs(clip: TimelineClipEntity): Long = (clip.trimEndMs ?: clip.durationMs).coerceIn(normalizedTrimStartMs(clip), clip.durationMs.coerceAtLeast(0L))
+
+private fun visibleDurationMs(clip: TimelineClipEntity): Long = (normalizedTrimEndMs(clip) - normalizedTrimStartMs(clip)).coerceAtLeast(0L)
 
 @OptIn(UnstableApi::class)
 private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long): EditedMediaItem {
