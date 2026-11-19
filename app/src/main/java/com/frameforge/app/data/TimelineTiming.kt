@@ -1,5 +1,13 @@
 package com.frameforge.app.data
 
+/** Trim values are clamped to the source duration before layout or rendering. */
+internal fun normalizedClipTrimStartMs(clip: TimelineClipEntity): Long = clip.trimStartMs.coerceIn(0L, clip.durationMs.coerceAtLeast(0L))
+
+internal fun normalizedClipTrimEndMs(clip: TimelineClipEntity): Long = (clip.trimEndMs ?: clip.durationMs).coerceIn(normalizedClipTrimStartMs(clip), clip.durationMs.coerceAtLeast(0L))
+
+internal fun visibleClipDurationMs(clip: TimelineClipEntity): Long = (normalizedClipTrimEndMs(clip) - normalizedClipTrimStartMs(clip)).coerceAtLeast(0L)
+
+
 /**
  * Assigns sequential timeline positions within one track.
  * A clip's visible duration is its trim range, not necessarily its source duration.
@@ -10,8 +18,7 @@ internal fun withSequentialTimelineOffsets(clips: List<TimelineClipEntity>): Lis
         val gapMs = clip.gapBeforeMs.coerceAtLeast(0L)
         cursorMs = if (gapMs > Long.MAX_VALUE - cursorMs) Long.MAX_VALUE else cursorMs + gapMs
         val positioned = clip.copy(timelineStartMs = cursorMs)
-        val endMs = clip.trimEndMs ?: clip.durationMs
-        val visibleDurationMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
+        val visibleDurationMs = visibleClipDurationMs(clip)
         cursorMs = if (visibleDurationMs > Long.MAX_VALUE - cursorMs) Long.MAX_VALUE
             else cursorMs + visibleDurationMs
         positioned
