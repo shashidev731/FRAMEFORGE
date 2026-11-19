@@ -109,7 +109,7 @@ internal suspend fun extractAudioWaveformPeaks(
         val channels = if (format.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) format.getInteger(MediaFormat.KEY_CHANNEL_COUNT).coerceAtLeast(1) else 1
         val metadataDurationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0L
         val effectiveDurationUs = metadataDurationUs.takeIf { it > 0L } ?: durationMs.coerceAtLeast(0L) * 1000L
-        val expectedSamples = if (sampleRate > 0 && effectiveDurationUs > 0L) effectiveDurationUs * sampleRate * channels / 1_000_000L else 0L
+        val expectedSamples = if (sampleRate > 0 && effectiveDurationUs > 0L) (effectiveDurationUs.toDouble() * sampleRate.toDouble() * channels.toDouble() / 1_000_000.0).toLong().coerceAtLeast(1L) else 0L
         val info = MediaCodec.BufferInfo()
 
         while (!outputDone) {
