@@ -108,4 +108,20 @@ class TimelineTimingTest {
         assertEquals(listOf(0L, 1000L, 2000L), result.map { it.timelineStartMs })
     }
 
+    @Test
+    fun trimBoundsAreClampedToSourceDuration() {
+        val media = clip("invalid", 0, 5000L, trimStartMs = 9000L, trimEndMs = 12000L)
+        assertEquals(5000L, normalizedClipTrimStartMs(media))
+        assertEquals(5000L, normalizedClipTrimEndMs(media))
+        assertEquals(0L, visibleClipDurationMs(media))
+    }
+
+    @Test
+    fun negativeTrimStartAndOversizedTrimEndAreNormalized() {
+        val media = clip("edge", 0, 5000L, trimStartMs = -200L, trimEndMs = 9000L)
+        assertEquals(0L, normalizedClipTrimStartMs(media))
+        assertEquals(5000L, normalizedClipTrimEndMs(media))
+        assertEquals(5000L, visibleClipDurationMs(media))
+    }
+
 }
