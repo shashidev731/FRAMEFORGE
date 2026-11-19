@@ -69,8 +69,11 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
     DisposableEffect(player) {
         onDispose {
             player.release()
-            runCatching { exportTransformer?.cancel() }
-            activeOutputFile?.delete()
+            if (exportTransformer != null) {
+                exportCancelled = true
+                runCatching { exportTransformer?.cancel() }
+            }
+            // Let the Transformer finish cancellation before callbacks clean up its output.
             activeOutputFile = null
         }
     }
