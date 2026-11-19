@@ -168,9 +168,17 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
                                 .addListener(object : Transformer.Listener {
                                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                                         activeOutputFile = null
-                                        exportFile = output
-                                        exportProgress = 100
-                                        exportStatus = "Export complete"
+                                        if (output.exists() && output.length() > 0L) {
+                                            exportFile = output
+                                            exportProgress = 100
+                                            exportStatus = "Export complete"
+                                            exportError = null
+                                        } else {
+                                            output.delete()
+                                            exportFile = null
+                                            exportError = "Export finished without a valid output file."
+                                            exportStatus = "Export failed"
+                                        }
                                         exportTransformer = null
                                     }
 
