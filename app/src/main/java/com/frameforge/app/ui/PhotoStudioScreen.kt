@@ -238,15 +238,18 @@ private fun renderPhotoEdit(
         "9:16" -> 9f / 16f
         else -> source.width.toFloat() / source.height.toFloat()
     }
+    // For quarter-turn rotations, crop in the inverse ratio so the final rendered
+    // image matches the selected aspect ratio after rotation.
+    val cropTargetRatio = if (rotation % 180 != 0) 1f / targetRatio else targetRatio
     val sourceRatio = source.width.toFloat() / source.height.toFloat()
     val cropWidth: Int
     val cropHeight: Int
-    if (sourceRatio > targetRatio) {
+    if (sourceRatio > cropTargetRatio) {
         cropHeight = source.height
-        cropWidth = (cropHeight * targetRatio).toInt().coerceIn(1, source.width)
+        cropWidth = (cropHeight * cropTargetRatio).toInt().coerceIn(1, source.width)
     } else {
         cropWidth = source.width
-        cropHeight = (cropWidth / targetRatio).toInt().coerceIn(1, source.height)
+        cropHeight = (cropWidth / cropTargetRatio).toInt().coerceIn(1, source.height)
     }
     val left = (source.width - cropWidth) / 2
     val top = (source.height - cropHeight) / 2
