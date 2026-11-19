@@ -112,8 +112,7 @@ interface TimelineClipDao {
         val ordered = clipsInTrack(current.projectId, current.trackIndex).sortedBy { it.position }
         if (ordered.size < 2) return
         val target = requestedPosition.coerceIn(0, ordered.lastIndex)
-        val source = ordered.indexOfFirst { it.clipId == clipId }
-        if (source < 0 || source == target) return
+        if (current.position == target) return
         val reordered = reorderTimelineClips(ordered, clipId, target)
         moveTrackToTemporaryPositions(current.projectId, current.trackIndex)
         reordered.forEach { clip -> setPosition(clip.clipId, clip.position) }
