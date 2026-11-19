@@ -30,10 +30,10 @@ fun EditorTimelinePanel(projectId: String, repository: EditHistoryRepository) {
     val canRedo = operations.any { !it.isApplied }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Editing timeline", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Edit history", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Add an edit instruction", fontWeight = FontWeight.SemiBold)
+                Text("Record an edit note", fontWeight = FontWeight.SemiBold)
                 Text("Choose a non-destructive operation to add to this project's saved edit history.", color = Muted,
                     style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -78,7 +78,7 @@ fun EditorTimelinePanel(projectId: String, repository: EditHistoryRepository) {
                 ) {
                     Icon(Icons.Default.Add, null)
                     Spacer(Modifier.width(6.dp))
-                    Text("Add to edit history")
+                    Text("Record note")
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { scope.launch { repository.undo(projectId) } },
