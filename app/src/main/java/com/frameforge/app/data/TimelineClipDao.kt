@@ -76,12 +76,13 @@ interface TimelineClipDao {
     @Transaction
     suspend fun splitAt(clipId: String, splitAtMs: Long): Boolean {
         val current = find(clipId) ?: return false
-        val end = current.trimEndMs ?: current.durationMs
-        if (current.durationMs <= 0L || splitAtMs <= current.trimStartMs || splitAtMs >= end) return false
+        val start = normalizedClipTrimStartMs(current)
+        val end = normalizedClipTrimEndMs(current)
+        if (current.durationMs <= 0L || splitAtMs <= start || splitAtMs >= end) return false
         val track = clipsInTrack(current.projectId, current.trackIndex)
         val second = current.copy(clipId = UUID.randomUUID().toString(), position = Int.MIN_VALUE, trimStartMs = splitAtMs, trimEndMs = end, gapBeforeMs = 0L)
         moveTrackToTemporaryPositions(current.projectId, current.trackIndex)
-        setTrimEnd(current.clipId, splitAtMs)
+        updateTrimRange(current.clipId, start, splitAtMs)
         insert(second)
         val ordered = buildList {
             track.forEach { item ->
