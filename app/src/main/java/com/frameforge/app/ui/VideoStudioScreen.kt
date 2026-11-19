@@ -58,10 +58,13 @@ fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 val duration = withContext(Dispatchers.IO) {
                     runCatching {
                         val retriever = android.media.MediaMetadataRetriever()
-                        retriever.setDataSource(context, uri)
-                        val value = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-                        retriever.release()
-                        value / 1000f
+                        try {
+                            retriever.setDataSource(context, uri)
+                            val value = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                            value / 1000f
+                        } finally {
+                            runCatching { retriever.release() }
+                        }
                     }.getOrDefault(0f)
                 }
                 durationSeconds = duration
