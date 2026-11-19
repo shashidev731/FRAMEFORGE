@@ -271,9 +271,12 @@ private fun renderPhotoEdit(
     Canvas(adjusted).drawBitmap(cropped, 0f, 0f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
         colorFilter = ColorMatrixColorFilter(color)
     })
+    if (cropped !== source && !cropped.isRecycled) cropped.recycle()
     val rotated = if (rotation % 360 == 0) adjusted else {
         val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-        Bitmap.createBitmap(adjusted, 0, 0, adjusted.width, adjusted.height, matrix, true)
+        Bitmap.createBitmap(adjusted, 0, 0, adjusted.width, adjusted.height, matrix, true).also {
+            if (!adjusted.isRecycled) adjusted.recycle()
+        }
     }
     if (overlayText.isBlank()) return rotated
     val output = rotated.copy(Bitmap.Config.ARGB_8888, true)
@@ -284,5 +287,6 @@ private fun renderPhotoEdit(
         typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
     }
     Canvas(output).drawText(overlayText, output.width * 0.05f, output.height * 0.9f, textPaint)
+    if (rotated !== source && !rotated.isRecycled) rotated.recycle()
     return output
 }
