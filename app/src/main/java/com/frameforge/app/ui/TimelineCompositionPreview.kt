@@ -45,6 +45,9 @@ import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.ui.PlayerView
 import com.frameforge.app.data.TimelineClipEntity
+import com.frameforge.app.data.visibleClipDurationMs
+import com.frameforge.app.data.normalizedClipTrimStartMs
+import com.frameforge.app.data.normalizedClipTrimEndMs
 import com.frameforge.app.ui.theme.Line
 import com.frameforge.app.ui.theme.Muted
 import com.frameforge.app.ui.theme.SurfaceWhite
@@ -273,12 +276,12 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): Compositi
         .sortedBy { it.timelineStartMs }
         .toList()
 
-    if (visualClips.none { visibleDurationMs(it) > 0L }) return null
+    if (visualClips.none { visibleClipDurationMs(it) > 0L }) return null
 
     val visualSequence = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_VIDEO))
     var visualCursorMs = 0L
     visualClips.forEach { clip ->
-        val durationMs = visibleDurationMs(clip)
+        val durationMs = visibleClipDurationMs(clip)
         if (durationMs > 0L) {
             require(clip.timelineStartMs >= visualCursorMs) {
                 "Visual clips overlap. Overlapping clip compositing is not supported yet."
@@ -313,12 +316,6 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): Compositi
     return Composition.Builder(sequences).build()
 }
 
-private fun normalizedTrimStartMs(clip: TimelineClipEntity): Long = clip.trimStartMs.coerceIn(0L, clip.durationMs.coerceAtLeast(0L))
-
-private fun normalizedTrimEndMs(clip: TimelineClipEntity): Long = (clip.trimEndMs ?: clip.durationMs).coerceIn(normalizedTrimStartMs(clip), clip.durationMs.coerceAtLeast(0L))
-
-private fun visibleDurationMs(clip: TimelineClipEntity): Long = (normalizedTrimEndMs(clip) - normalizedTrimStartMs(clip)).coerceAtLeast(0L)
-
 @OptIn(UnstableApi::class)
 private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long): EditedMediaItem {
     val mediaItemBuilder = MediaItem.Builder()
@@ -328,8 +325,8 @@ private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long):
     if (clip.mimeType.startsWith("image/")) {
         mediaItemBuilder.setImageDurationMs(durationMs)
     } else {
-        val startMs = normalizedTrimStartMs(clip)
-        val endMs = normalizedTrimEndMs(clip)
+        val startMs = normalizedClipTrimStartMs(clip)
+        val endMs = normalizedClipTrimEndMs(clip)
         mediaItemBuilder.setClippingConfiguration(
             MediaItem.ClippingConfiguration.Builder()
                 .setStartPositionMs(startMs)
