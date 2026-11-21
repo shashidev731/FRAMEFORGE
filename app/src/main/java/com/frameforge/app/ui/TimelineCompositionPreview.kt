@@ -69,7 +69,7 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
     var exportError by remember { mutableStateOf<String?>(null) }
     var exportProgress by remember { mutableStateOf(0) }
     var exportCancelled by remember { mutableStateOf(false) }
-    var previewPositionMs by remember { mutableStateOf(0L)
+    var previewPositionMs by remember { mutableStateOf(0L) }
     var previewDurationMs by remember { mutableStateOf(0L) }
 
     DisposableEffect(player) {
