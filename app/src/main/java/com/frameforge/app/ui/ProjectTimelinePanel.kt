@@ -84,7 +84,13 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             }
         }
         TimelineRuler(clips)
-        TimelineClipStrip(clips, selectedClipId, onSelect = { selectedClipId = it })
+        var timelineZoom by remember(projectId) { mutableFloatStateOf(18f) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Timeline zoom", color = Muted, style = MaterialTheme.typography.labelSmall)
+        Slider(value = timelineZoom, onValueChange = { timelineZoom = it }, valueRange = 6f..36f, modifier = Modifier.weight(1f))
+        Text("${timelineZoom.toInt()}×", color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+    TimelineClipStrip(clips, selectedClipId, timelineZoom, onSelect = { selectedClipId = it })
         TimelineCompositionPreview(clips)
         if (selectedClip != null) {
             Surface(shape = RoundedCornerShape(16.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
@@ -427,6 +433,7 @@ internal fun formatTimelineDuration(milliseconds: Long): String {
 private fun TimelineClipStrip(
     clips: List<TimelineClipEntity>,
     selectedClipId: String?,
+    zoomDpPerSecond: Float,
     onSelect: (String) -> Unit
 ) {
     val scroll = rememberScrollState()
@@ -435,14 +442,14 @@ private fun TimelineClipStrip(
         Row(Modifier.fillMaxWidth().horizontalScroll(scroll), verticalAlignment = Alignment.CenterVertically) {
             clips.filter { it.trackIndex == 0 }.sortedBy { it.timelineStartMs }.forEach { clip ->
                 if (clip.gapBeforeMs > 0L) {
-                    Box(Modifier.width((clip.gapBeforeMs / 1000f * 18f).coerceIn(8f, 90f).dp)
+                    Box(Modifier.width((clip.gapBeforeMs / 1000f * zoomDpPerSecond).coerceIn(2f, 600f).dp)
                         .height(30.dp).background(Line, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) {
                         Text("gap", color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                 }
                 val endMs = clip.trimEndMs ?: clip.durationMs
                 val lengthMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
-                val blockWidth = (lengthMs / 1000f * 18f).coerceIn(72f, 180f)
+                val blockWidth = (lengthMs / 1000f * zoomDpPerSecond).coerceIn(36f, 900f)
                 Surface(
                     modifier = Modifier.width(blockWidth.dp).height(38.dp).clickable { onSelect(clip.clipId) },
                     color = if (selectedClipId == clip.clipId) Accent.copy(alpha = .22f) else Canvas,
