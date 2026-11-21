@@ -80,6 +80,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                 }
             }
         }
+        TimelineRuler(clips)
         TimelineCompositionPreview(clips)
         if (selectedClip != null) {
             Surface(shape = RoundedCornerShape(16.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
