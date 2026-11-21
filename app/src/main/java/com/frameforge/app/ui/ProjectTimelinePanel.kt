@@ -13,6 +13,8 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,6 +83,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             }
         }
         TimelineRuler(clips)
+        TimelineClipStrip(clips, selectedClipId, onSelect = { selectedClipId = it })
         TimelineCompositionPreview(clips)
         if (selectedClip != null) {
             Surface(shape = RoundedCornerShape(16.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
@@ -417,4 +420,41 @@ private fun readTimelineMediaDuration(context: android.content.Context, uriText:
 private fun formatTimelineDuration(milliseconds: Long): String {
     val seconds = (milliseconds.coerceAtLeast(0L) / 1000L).toInt()
     return "%02d:%02d".format(seconds / 60, seconds % 60)
+}
+
+@Composable
+private fun TimelineClipStrip(
+    clips: List<TimelineClipEntity>,
+    selectedClipId: String?,
+    onSelect: (String) -> Unit
+) {
+    val scroll = rememberScrollState()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("CLIP OVERVIEW • TAP TO SELECT", color = Muted, style = MaterialTheme.typography.labelSmall)
+        Row(Modifier.fillMaxWidth().horizontalScroll(scroll), verticalAlignment = Alignment.CenterVertically) {
+            clips.filter { it.trackIndex == 0 }.sortedBy { it.timelineStartMs }.forEach { clip ->
+                if (clip.gapBeforeMs > 0L) {
+                    Box(Modifier.width((clip.gapBeforeMs / 1000f * 18f).coerceIn(8f, 90f).dp)
+                        .height(30.dp).background(Line, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) {
+                        Text("gap", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                val endMs = clip.trimEndMs ?: clip.durationMs
+                val lengthMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
+                val blockWidth = (lengthMs / 1000f * 18f).coerceIn(72f, 180f)
+                Surface(
+                    modifier = Modifier.width(blockWidth.dp).height(38.dp).clickable { onSelect(clip.clipId) },
+                    color = if (selectedClipId == clip.clipId) Accent.copy(alpha = .22f) else Canvas,
+                    shape = RoundedCornerShape(6.dp),
+                    border = BorderStroke(if (selectedClipId == clip.clipId) 2.dp else 1.dp, if (selectedClipId == clip.clipId) Accent else Line)
+                ) {
+                    Column(Modifier.padding(horizontal = 7.dp, vertical = 3.dp), verticalArrangement = Arrangement.Center) {
+                        Text(clip.displayName, maxLines = 1, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                        Text(formatTimelineDuration(lengthMs), maxLines = 1, color = Muted, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Spacer(Modifier.width(4.dp))
+            }
+        }
+    }
 }
