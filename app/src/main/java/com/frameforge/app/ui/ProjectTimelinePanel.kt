@@ -9,6 +9,7 @@ import android.widget.MediaController
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.BorderStroke
@@ -417,7 +418,7 @@ private fun readTimelineMediaDuration(context: android.content.Context, uriText:
     }
 }
 
-private fun formatTimelineDuration(milliseconds: Long): String {
+internal fun formatTimelineDuration(milliseconds: Long): String {
     val seconds = (milliseconds.coerceAtLeast(0L) / 1000L).toInt()
     return "%02d:%02d".format(seconds / 60, seconds % 60)
 }
