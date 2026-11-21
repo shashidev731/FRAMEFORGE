@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +69,8 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
     var exportError by remember { mutableStateOf<String?>(null) }
     var exportProgress by remember { mutableStateOf(0) }
     var exportCancelled by remember { mutableStateOf(false) }
+    var previewPositionMs by remember { mutableStateOf(0L)
+    var previewDurationMs by remember { mutableStateOf(0L) }
 
     DisposableEffect(player) {
         onDispose {
@@ -78,6 +81,18 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
             }
             // Let the Transformer finish cancellation before callbacks clean up its output.
             activeOutputFile = null
+        }
+    }
+
+    LaunchedEffect(player, composition) {
+        previewPositionMs = 0L
+        previewDurationMs = 0L
+        if (composition != null) {
+            while (true) {
+                runCatching { player.currentPosition }.getOrNull()?.let { previewPositionMs = it.coerceAtLeast(0L) }
+                runCatching { player.duration }.getOrNull()?.let { if (it > 0L) previewDurationMs = it }
+                delay(250)
+            }
         }
     }
 
@@ -152,6 +167,19 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
                 )
             }
             if (composition != null) {
+                if (previewDurationMs > 0L) {
+                    Text("Playhead • ${formatTimelineDuration(previewPositionMs)} / ${formatTimelineDuration(previewDurationMs)}", color = Muted, style = MaterialTheme.typography.labelMedium)
+                    Slider(
+                        value = previewPositionMs.toFloat().coerceIn(0f, previewDurationMs.toFloat()),
+                        onValueChange = { position ->
+                            previewPositionMs = position.toLong()
+                            runCatching { player.seekTo(position.toLong()) }
+                        },
+                        valueRange = 0f..previewDurationMs.toFloat()
+                    )
+                } else {
+                    Text("Playhead controls appear after preview duration loads.", color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
                 Text(
                     "Preview uses trimmed clip ranges. Crossfades and extra overlay tracks are not enabled yet.",
                     color = Muted,
