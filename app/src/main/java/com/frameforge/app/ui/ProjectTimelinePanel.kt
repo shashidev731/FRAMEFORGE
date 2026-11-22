@@ -497,6 +497,7 @@ private fun TimelineClipStrip(
                         Text(formatTimelineDuration(lengthMs), maxLines = 1, color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                 }
+                }
                 Spacer(Modifier.width(4.dp))
             }
         }
