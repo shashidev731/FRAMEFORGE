@@ -183,4 +183,34 @@ class TimelineTimingTest {
         assertEquals(4000L, result.single().trimEndMs)
         assertEquals(300L, result.single().gapBeforeMs)
     }
+
+    @Test
+    fun accumulatedVisibleDurationsSaturateAtLongMaxValue() {
+        val clips = listOf(
+            clip("first", 0, Long.MAX_VALUE),
+            clip("second", 1, 500L),
+            clip("third", 2, 1000L)
+        )
+
+        val result = withSequentialTimelineOffsets(clips)
+
+        assertEquals(listOf(0L, Long.MAX_VALUE, Long.MAX_VALUE), result.map { it.timelineStartMs })
+    }
+
+    @Test
+    fun gapAdditionSaturatesBeforeVisibleDurationIsAdded() {
+        val clips = listOf(
+            clip("first", 0, 100L),
+            clip("second", 1, Long.MAX_VALUE, gapBeforeMs = Long.MAX_VALUE)
+        )
+
+        val result = withSequentialTimelineOffsets(clips)
+
+        assertEquals(listOf(0L, Long.MAX_VALUE), result.map { it.timelineStartMs })
+    }
+
+    @Test
+    fun emptyTimelineProducesEmptyResult() {
+        assertEquals(emptyList<TimelineClipEntity>(), withSequentialTimelineOffsets(emptyList()))
+    }
 }
