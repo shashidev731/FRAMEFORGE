@@ -489,7 +489,10 @@ private fun TimelineClipStrip(
                     shape = RoundedCornerShape(6.dp),
                     border = BorderStroke(if (selectedClipId == clip.clipId) 2.dp else 1.dp, if (selectedClipId == clip.clipId) Accent else Line)
                 ) {
-                    Row(Modifier.padding(horizontal = 5.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {\n                        TimelineClipThumbnail(clip, Modifier.size(32.dp))\n                        Spacer(Modifier.width(5.dp))\n                        Column(verticalArrangement = Arrangement.Center) {
+                    Row(Modifier.padding(horizontal = 5.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TimelineClipThumbnail(clip, Modifier.size(32.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Column(verticalArrangement = Arrangement.Center) {
                         Text(clip.displayName, maxLines = 1, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
                         Text(formatTimelineDuration(lengthMs), maxLines = 1, color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
