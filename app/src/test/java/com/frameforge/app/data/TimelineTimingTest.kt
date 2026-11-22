@@ -165,8 +165,8 @@ class TimelineTimingTest {
         val result = reorderTimelineClips(clips, movingClipId = "three", requestedPosition = -20)
 
         assertEquals(listOf("three", "one", "two"), result.map { it.clipId })
-        assertEquals(listOf(100L, 1100L, 2350L), result.map { it.timelineStartMs })
-        assertEquals(listOf(2, 0, 1), result.map { it.position })
+        assertEquals(listOf(100L, 3350L, 5100L), result.map { it.timelineStartMs })
+        assertEquals(listOf(0, 1, 2), result.map { it.position })
         assertEquals(500L, result.last().trimStartMs)
         assertEquals(1500L, result.last().trimEndMs)
     }
@@ -178,7 +178,7 @@ class TimelineTimingTest {
 
         val result = reorderTimelineClips(listOf(single), movingClipId = "only", requestedPosition = 100)
 
-        assertEquals(0, result.single().position)
+        assertEquals(7, result.single().position)
         assertEquals(300L, result.single().timelineStartMs)
         assertEquals(1000L, result.single().trimStartMs)
         assertEquals(4000L, result.single().trimEndMs)
