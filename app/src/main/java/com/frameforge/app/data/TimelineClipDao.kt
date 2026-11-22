@@ -96,6 +96,29 @@ interface TimelineClipDao {
     }
 
     @Transaction
+    suspend fun duplicateClip(clipId: String): String? {
+        val current = find(clipId) ?: return null
+        val ordered = clipsInTrack(current.projectId, current.trackIndex).sortedBy { it.position }
+        val duplicate = current.copy(
+            clipId = UUID.randomUUID().toString(),
+            position = Int.MIN_VALUE,
+            gapBeforeMs = 0L,
+            createdAt = System.currentTimeMillis()
+        )
+        moveTrackToTemporaryPositions(current.projectId, current.trackIndex)
+        insert(duplicate)
+        val reordered = buildList {
+            ordered.forEach { clip ->
+                add(clip)
+                if (clip.clipId == current.clipId) add(duplicate)
+            }
+        }
+        reordered.forEachIndexed { index, clip -> setPosition(clip.clipId, index) }
+        reflowTrack(current.projectId, current.trackIndex)
+        return duplicate.clipId
+    }
+
+    @Transaction
     suspend fun move(clipId: String, direction: Int) {
         require(direction == -1 || direction == 1)
         val current = find(clipId) ?: return
