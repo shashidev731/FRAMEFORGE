@@ -49,6 +49,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
     val context = LocalContext.current
     var selectedClipId by remember(projectId) { mutableStateOf<String?>(null) }
     var addMenu by remember { mutableStateOf(false) }
+    var timelinePlayheadMs by remember(projectId) { mutableLongStateOf(0L) }
     val selectedClip = clips.firstOrNull { it.clipId == selectedClipId }
     val available = media.filter { item -> clips.none { it.mediaUri == item.uri } }
 
@@ -91,7 +92,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
         Text("${timelineZoom.toInt()}×", color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     TimelineClipStrip(clips, selectedClipId, timelineZoom, onSelect = { selectedClipId = it })
-        TimelineCompositionPreview(clips)
+        TimelineCompositionPreview(clips, onPlayheadChange = { timelinePlayheadMs = it })
         if (selectedClip != null) {
             Surface(shape = RoundedCornerShape(16.dp), color = Ink, border = BorderStroke(1.dp, Line)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -293,11 +294,12 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             ) { Text("Duplicate") }
                             OutlinedButton(
                                 onClick = {
-                                    val midpoint = trimStart.toLong() + (trimEnd.toLong() - trimStart.toLong()) / 2L
-                                    scope.launch { repository.splitAt(selectedClip.clipId, midpoint) }
+                                    val sourceSplitMs = trimStart.toLong() + (timelinePlayheadMs - selectedClip.timelineStartMs)
+                                    scope.launch { repository.splitAt(selectedClip.clipId, sourceSplitMs) }
                                 },
-                                enabled = trimEnd - trimStart > 1000f
-                            ) { Text("Split") }
+                                enabled = timelinePlayheadMs > selectedClip.timelineStartMs &&
+                                    timelinePlayheadMs < selectedClip.timelineStartMs + (trimEnd.toLong() - trimStart.toLong())
+                            ) { Text("Split at playhead") }
                         }
                     } else {
                         Text("Duration unavailable. Trim and split are disabled until the media duration can be read.",
