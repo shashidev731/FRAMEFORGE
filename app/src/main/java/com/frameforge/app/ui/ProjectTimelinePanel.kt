@@ -483,12 +483,12 @@ private fun TimelineClipStrip(
     zoomDpPerSecond: Float,
     onSelect: (String) -> Unit
 ) {
-    val scroll = rememberScrollState()
     val tracks = clips.groupBy { it.trackIndex }.toSortedMap()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("MULTITRACK OVERVIEW • TAP A CLIP", color = Muted, style = MaterialTheme.typography.labelSmall)
         tracks.forEach { (trackIndex, trackClips) ->
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                val trackScroll = rememberScrollState()
                 Text(
                     when (trackIndex) {
                         0 -> "VIDEO / IMAGE"
@@ -497,7 +497,7 @@ private fun TimelineClipStrip(
                     },
                     color = Accent, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold
                 )
-                Row(Modifier.fillMaxWidth().horizontalScroll(scroll), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(trackScroll), verticalAlignment = Alignment.CenterVertically) {
                     trackClips.sortedBy { it.position }.forEach { clip ->
                         if (clip.gapBeforeMs > 0L) {
                             Box(
