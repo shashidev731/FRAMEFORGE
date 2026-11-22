@@ -40,7 +40,6 @@ import com.frameforge.app.data.TimelineClipEntity
 import com.frameforge.app.data.TimelineRepository
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -443,11 +442,13 @@ private fun TimelineClipThumbnail(clip: TimelineClipEntity, modifier: Modifier =
     LaunchedEffect(clip.clipId, clip.mediaUri, clip.mimeType) {
         bitmap = if (clip.mimeType.startsWith("image/")) null else withContext(Dispatchers.IO) {
             runCatching {
-                MediaMetadataRetriever().run {
-                    setDataSource(context, Uri.parse(clip.mediaUri))
-                    val frame = getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                    release()
-                    frame
+                MediaMetadataRetriever().let { retriever ->
+                    try {
+                        retriever.setDataSource(context, Uri.parse(clip.mediaUri))
+                        retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    } finally {
+                        runCatching { retriever.release() }
+                    }
                 }
             }.getOrNull()
         }
