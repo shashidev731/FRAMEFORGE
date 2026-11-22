@@ -289,6 +289,9 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                                 enabled = trimEnd - trimStart >= 1f
                             ) { Text("Apply trim") }
                             OutlinedButton(
+                                onClick = { scope.launch { repository.duplicate(selectedClip.clipId) } }
+                            ) { Text("Duplicate") }
+                            OutlinedButton(
                                 onClick = {
                                     val midpoint = trimStart.toLong() + (trimEnd.toLong() - trimStart.toLong()) / 2L
                                     scope.launch { repository.splitAt(selectedClip.clipId, midpoint) }
