@@ -38,6 +38,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.frameforge.app.data.MediaEntity
 import com.frameforge.app.data.TimelineClipEntity
 import com.frameforge.app.data.TimelineRepository
+import com.frameforge.app.data.normalizedClipTrimStartMs
+import com.frameforge.app.data.normalizedClipTrimEndMs
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -398,8 +400,7 @@ private fun TimelineClipRow(
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(clip.displayName, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                val clipEndMs = clip.trimEndMs ?: clip.durationMs
-                val clipLengthMs = (clipEndMs - clip.trimStartMs).coerceAtLeast(0L)
+                val clipLengthMs = (normalizedClipTrimEndMs(clip) - normalizedClipTrimStartMs(clip)).coerceAtLeast(0L)
                 Text(
                     if (clip.durationMs > 0L) "Starts ${formatTimelineDuration(clip.timelineStartMs)} • ${formatTimelineDuration(clipLengthMs)} • Gap ${formatTimelineDuration(clip.gapBeforeMs)}"
                     else "Starts ${formatTimelineDuration(clip.timelineStartMs)} • Duration unknown • Gap ${formatTimelineDuration(clip.gapBeforeMs)}",
@@ -483,8 +484,7 @@ private fun TimelineClipStrip(
                         Text("gap", color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                val endMs = clip.trimEndMs ?: clip.durationMs
-                val lengthMs = (endMs - clip.trimStartMs).coerceAtLeast(0L)
+                val lengthMs = (normalizedClipTrimEndMs(clip) - normalizedClipTrimStartMs(clip)).coerceAtLeast(0L)
                 val blockWidth = (lengthMs / 1000f * zoomDpPerSecond).coerceIn(36f, 900f)
                 Surface(
                     modifier = Modifier.width(blockWidth.dp).height(38.dp).clickable { onSelect(clip.clipId) },
