@@ -213,4 +213,17 @@ class TimelineTimingTest {
     fun emptyTimelineProducesEmptyResult() {
         assertEquals(emptyList<TimelineClipEntity>(), withSequentialTimelineOffsets(emptyList()))
     }
+
+    @Test
+    fun zeroVisibleDurationClipOnlyContributesItsGap() {
+        val clips = listOf(
+            clip("empty", 0, 4000L, trimStartMs = 2000L, trimEndMs = 2000L, gapBeforeMs = 300L),
+            clip("next", 1, 1500L, gapBeforeMs = 700L)
+        )
+
+        val result = withSequentialTimelineOffsets(clips)
+
+        assertEquals(listOf(300L, 1000L), result.map { it.timelineStartMs })
+        assertEquals(0L, visibleClipDurationMs(result.first()))
+    }
 }
