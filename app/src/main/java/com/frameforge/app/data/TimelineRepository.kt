@@ -38,4 +38,5 @@ class TimelineRepository(private val dao: TimelineClipDao) {
     suspend fun moveEarlier(clipId: String) = dao.move(clipId, -1)
     suspend fun moveLater(clipId: String) = dao.move(clipId, 1)
     suspend fun moveToPosition(clipId: String, position: Int) = dao.moveToPosition(clipId, position)
+    suspend fun moveToTrack(clipId: String, trackIndex: Int) = dao.moveToTrack(clipId, trackIndex)
 }
