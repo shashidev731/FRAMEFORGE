@@ -153,3 +153,34 @@ class TimelineTimingTest {
     }
 
 }
+
+    @Test
+    fun arbitraryMoveClampsNegativeTargetToFirstPosition() {
+        val clips = listOf(
+            clip("one", 0, 1000L, gapBeforeMs = 250L),
+            clip("two", 1, 2000L, trimStartMs = 500L, trimEndMs = 1500L, gapBeforeMs = 750L),
+            clip("three", 2, 3000L, gapBeforeMs = 100L)
+        )
+
+        val result = reorderTimelineClips(clips, movingClipId = "three", requestedPosition = -20)
+
+        assertEquals(listOf("three", "one", "two"), result.map { it.clipId })
+        assertEquals(listOf(100L, 1100L, 2350L), result.map { it.timelineStartMs })
+        assertEquals(listOf(2, 0, 1), result.map { it.position })
+        assertEquals(500L, result.last().trimStartMs)
+        assertEquals(1500L, result.last().trimEndMs)
+    }
+
+    @Test
+    fun singleClipMoveNormalizesTimelineStartWithoutChangingClipFields() {
+        val single = clip("only", position = 7, durationMs = 5000L, trimStartMs = 1000L, trimEndMs = 4000L, gapBeforeMs = 300L)
+            .copy(timelineStartMs = 9999L)
+
+        val result = reorderTimelineClips(listOf(single), movingClipId = "only", requestedPosition = 100)
+
+        assertEquals(0, result.single().position)
+        assertEquals(300L, result.single().timelineStartMs)
+        assertEquals(1000L, result.single().trimStartMs)
+        assertEquals(4000L, result.single().trimEndMs)
+        assertEquals(300L, result.single().gapBeforeMs)
+    }
