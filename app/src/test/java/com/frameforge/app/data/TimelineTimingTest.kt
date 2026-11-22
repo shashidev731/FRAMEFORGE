@@ -152,7 +152,6 @@ class TimelineTimingTest {
         assertEquals(listOf(0L, 1000L), result.map { it.timelineStartMs })
     }
 
-}
 
     @Test
     fun arbitraryMoveClampsNegativeTargetToFirstPosition() {
@@ -184,3 +183,4 @@ class TimelineTimingTest {
         assertEquals(4000L, result.single().trimEndMs)
         assertEquals(300L, result.single().gapBeforeMs)
     }
+}
