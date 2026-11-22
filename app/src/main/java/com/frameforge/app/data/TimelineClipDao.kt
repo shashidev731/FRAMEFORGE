@@ -143,6 +143,21 @@ interface TimelineClipDao {
         reflowTrack(current.projectId, current.trackIndex)
     }
 
+    @Query("UPDATE timeline_clips SET trackIndex = :trackIndex, position = :position WHERE clipId = :clipId")
+    suspend fun setTrackAndPosition(clipId: String, trackIndex: Int, position: Int)
+
+    @Transaction
+    suspend fun moveToTrack(clipId: String, targetTrackIndex: Int) {
+        require(targetTrackIndex >= 0)
+        val current = find(clipId) ?: return
+        if (current.trackIndex == targetTrackIndex) return
+        val destinationPosition = nextPosition(current.projectId, targetTrackIndex)
+        moveToTemporary(clipId)
+        setTrackAndPosition(clipId, targetTrackIndex, destinationPosition)
+        reflowTrack(current.projectId, current.trackIndex)
+        reflowTrack(current.projectId, targetTrackIndex)
+    }
+
     @Query("SELECT * FROM timeline_clips WHERE projectId = :projectId AND trackIndex = :trackIndex AND position = :position LIMIT 1")
     suspend fun findAt(projectId: String, trackIndex: Int, position: Int): TimelineClipEntity?
 
