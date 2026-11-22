@@ -484,34 +484,50 @@ private fun TimelineClipStrip(
     onSelect: (String) -> Unit
 ) {
     val scroll = rememberScrollState()
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("CLIP OVERVIEW • TAP TO SELECT", color = Muted, style = MaterialTheme.typography.labelSmall)
-        Row(Modifier.fillMaxWidth().horizontalScroll(scroll), verticalAlignment = Alignment.CenterVertically) {
-            clips.filter { it.trackIndex == 0 }.sortedBy { it.timelineStartMs }.forEach { clip ->
-                if (clip.gapBeforeMs > 0L) {
-                    Box(Modifier.width((clip.gapBeforeMs / 1000f * zoomDpPerSecond).coerceIn(2f, 600f).dp)
-                        .height(30.dp).background(Line, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) {
-                        Text("gap", color = Muted, style = MaterialTheme.typography.labelSmall)
+    val tracks = clips.groupBy { it.trackIndex }.toSortedMap()
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("MULTITRACK OVERVIEW • TAP A CLIP", color = Muted, style = MaterialTheme.typography.labelSmall)
+        tracks.forEach { (trackIndex, trackClips) ->
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    when (trackIndex) {
+                        0 -> "VIDEO / IMAGE"
+                        1 -> "AUDIO"
+                        else -> "OVERLAY $trackIndex"
+                    },
+                    color = Accent, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold
+                )
+                Row(Modifier.fillMaxWidth().horizontalScroll(scroll), verticalAlignment = Alignment.CenterVertically) {
+                    trackClips.sortedBy { it.position }.forEach { clip ->
+                        if (clip.gapBeforeMs > 0L) {
+                            Box(
+                                Modifier.width((clip.gapBeforeMs / 1000f * zoomDpPerSecond).coerceIn(2f, 600f).dp)
+                                    .height(30.dp).background(Line, RoundedCornerShape(3.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("gap", color = Muted, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        val lengthMs = (normalizedClipTrimEndMs(clip) - normalizedClipTrimStartMs(clip)).coerceAtLeast(0L)
+                        val blockWidth = (lengthMs / 1000f * zoomDpPerSecond).coerceIn(36f, 900f)
+                        Surface(
+                            modifier = Modifier.width(blockWidth.dp).height(38.dp).clickable { onSelect(clip.clipId) },
+                            color = if (selectedClipId == clip.clipId) Accent.copy(alpha = .22f) else Canvas,
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(if (selectedClipId == clip.clipId) 2.dp else 1.dp, if (selectedClipId == clip.clipId) Accent else Line)
+                        ) {
+                            Row(Modifier.padding(horizontal = 5.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                TimelineClipThumbnail(clip, Modifier.size(32.dp))
+                                Spacer(Modifier.width(5.dp))
+                                Column(verticalArrangement = Arrangement.Center) {
+                                    Text(clip.displayName, maxLines = 1, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                                    Text(formatTimelineDuration(lengthMs), maxLines = 1, color = Muted, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.width(4.dp))
                     }
                 }
-                val lengthMs = (normalizedClipTrimEndMs(clip) - normalizedClipTrimStartMs(clip)).coerceAtLeast(0L)
-                val blockWidth = (lengthMs / 1000f * zoomDpPerSecond).coerceIn(36f, 900f)
-                Surface(
-                    modifier = Modifier.width(blockWidth.dp).height(38.dp).clickable { onSelect(clip.clipId) },
-                    color = if (selectedClipId == clip.clipId) Accent.copy(alpha = .22f) else Canvas,
-                    shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(if (selectedClipId == clip.clipId) 2.dp else 1.dp, if (selectedClipId == clip.clipId) Accent else Line)
-                ) {
-                    Row(Modifier.padding(horizontal = 5.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TimelineClipThumbnail(clip, Modifier.size(32.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Column(verticalArrangement = Arrangement.Center) {
-                        Text(clip.displayName, maxLines = 1, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                        Text(formatTimelineDuration(lengthMs), maxLines = 1, color = Muted, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-                }
-                Spacer(Modifier.width(4.dp))
             }
         }
     }
