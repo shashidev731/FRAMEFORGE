@@ -1,6 +1,7 @@
 package com.frameforge.app.ui
 
 import android.net.Uri
+import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.widget.ImageView
@@ -39,6 +40,7 @@ import com.frameforge.app.data.TimelineClipEntity
 import com.frameforge.app.data.TimelineRepository
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -435,6 +437,32 @@ internal fun formatTimelineDuration(milliseconds: Long): String {
 }
 
 @Composable
+private fun TimelineClipThumbnail(clip: TimelineClipEntity, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var bitmap by remember(clip.clipId, clip.mediaUri) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(clip.clipId, clip.mediaUri, clip.mimeType) {
+        bitmap = if (clip.mimeType.startsWith("image/")) null else withContext(Dispatchers.IO) {
+            runCatching {
+                MediaMetadataRetriever().run {
+                    setDataSource(context, Uri.parse(clip.mediaUri))
+                    val frame = getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    release()
+                    frame
+                }
+            }.getOrNull()
+        }
+    }
+    AndroidView(
+        factory = { viewContext -> ImageView(viewContext).apply { scaleType = ImageView.ScaleType.CENTER_CROP } },
+        update = { view ->
+            if (clip.mimeType.startsWith("image/")) view.setImageURI(Uri.parse(clip.mediaUri))
+            else view.setImageBitmap(bitmap)
+        },
+        modifier = modifier
+    )
+}
+
+@Composable
 private fun TimelineClipStrip(
     clips: List<TimelineClipEntity>,
     selectedClipId: String?,
@@ -461,7 +489,7 @@ private fun TimelineClipStrip(
                     shape = RoundedCornerShape(6.dp),
                     border = BorderStroke(if (selectedClipId == clip.clipId) 2.dp else 1.dp, if (selectedClipId == clip.clipId) Accent else Line)
                 ) {
-                    Column(Modifier.padding(horizontal = 7.dp, vertical = 3.dp), verticalArrangement = Arrangement.Center) {
+                    Row(Modifier.padding(horizontal = 5.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {\n                        TimelineClipThumbnail(clip, Modifier.size(32.dp))\n                        Spacer(Modifier.width(5.dp))\n                        Column(verticalArrangement = Arrangement.Center) {
                         Text(clip.displayName, maxLines = 1, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
                         Text(formatTimelineDuration(lengthMs), maxLines = 1, color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
