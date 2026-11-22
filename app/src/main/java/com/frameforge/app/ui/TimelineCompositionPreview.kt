@@ -55,7 +55,7 @@ import com.frameforge.app.ui.theme.SurfaceWhite
 
 @OptIn(UnstableApi::class, ExperimentalApi::class)
 @Composable
-fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
+fun TimelineCompositionPreview(clips: List<TimelineClipEntity>, onPlayheadChange: (Long) -> Unit = {}) {
     val context = LocalContext.current
     val compositionResult = remember(clips) {
         runCatching { buildTimelineComposition(clips) }
@@ -89,7 +89,7 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
         previewDurationMs = 0L
         if (composition != null) {
             while (true) {
-                runCatching { player.currentPosition }.getOrNull()?.let { previewPositionMs = it.coerceAtLeast(0L) }
+                runCatching { player.currentPosition }.getOrNull()?.let { previewPositionMs = it.coerceAtLeast(0L); onPlayheadChange(previewPositionMs) }
                 runCatching { player.duration }.getOrNull()?.let { if (it > 0L) previewDurationMs = it }
                 delay(250)
             }
@@ -173,6 +173,7 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>) {
                         value = previewPositionMs.toFloat().coerceIn(0f, previewDurationMs.toFloat()),
                         onValueChange = { position ->
                             previewPositionMs = position.toLong()
+                            onPlayheadChange(position.toLong())
                             runCatching { player.seekTo(position.toLong()) }
                         },
                         valueRange = 0f..previewDurationMs.toFloat()
