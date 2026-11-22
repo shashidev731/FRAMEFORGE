@@ -124,4 +124,32 @@ class TimelineTimingTest {
         assertEquals(5000L, visibleClipDurationMs(media))
     }
 
+    @Test
+    fun negativeGapIsNormalizedToZero() {
+        val clips = listOf(
+            clip("first", 0, 1200L, gapBeforeMs = -500L),
+            clip("second", 1, 800L, gapBeforeMs = -100L)
+        )
+        val result = withSequentialTimelineOffsets(clips)
+        assertEquals(listOf(0L, 1200L), result.map { it.timelineStartMs })
+    }
+
+    @Test
+    fun timelineOffsetSaturatesInsteadOfOverflowing() {
+        val clips = listOf(
+            clip("first", 0, Long.MAX_VALUE),
+            clip("second", 1, 1000L, gapBeforeMs = Long.MAX_VALUE)
+        )
+        val result = withSequentialTimelineOffsets(clips)
+        assertEquals(Long.MAX_VALUE, result[1].timelineStartMs)
+    }
+
+    @Test
+    fun unknownClipMoveReturnsNormalizedOriginalOrder() {
+        val clips = listOf(clip("a", 0, 1000L), clip("b", 1, 2000L))
+        val result = reorderTimelineClips(clips, movingClipId = "missing", requestedPosition = 0)
+        assertEquals(listOf("a", "b"), result.map { it.clipId })
+        assertEquals(listOf(0L, 1000L), result.map { it.timelineStartMs })
+    }
+
 }
