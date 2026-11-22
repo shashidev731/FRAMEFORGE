@@ -431,8 +431,10 @@ private fun readTimelineMediaDuration(context: android.content.Context, uriText:
 }
 
 internal fun formatTimelineDuration(milliseconds: Long): String {
-    val seconds = (milliseconds.coerceAtLeast(0L) / 1000L).toInt()
-    return "%02d:%02d".format(seconds / 60, seconds % 60)
+    val seconds = milliseconds.coerceAtLeast(0L) / 1000L
+    val minutes = seconds / 60L
+    val remainingSeconds = seconds % 60L
+    return "%02d:%02d".format(minutes, remainingSeconds)
 }
 
 @Composable
