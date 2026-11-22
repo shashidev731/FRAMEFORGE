@@ -144,6 +144,16 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             ) { Text("Move clip") }
                         }
                     }
+                    Text("Track assignment", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        listOf(0 to "Video", 1 to "Audio", 2 to "Overlay 2", 3 to "Overlay 3").forEach { (track, label) ->
+                            OutlinedButton(
+                                onClick = { scope.launch { repository.moveToTrack(selectedClip.clipId, track) } },
+                                enabled = selectedClip.trackIndex != track,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(
                             onClick = {
