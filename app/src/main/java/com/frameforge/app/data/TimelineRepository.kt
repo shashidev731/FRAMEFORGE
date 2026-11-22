@@ -26,6 +26,7 @@ class TimelineRepository(private val dao: TimelineClipDao) {
     }
 
     suspend fun remove(clipId: String) = dao.removeAndCompact(clipId)
+    suspend fun duplicate(clipId: String): String? = dao.duplicateClip(clipId)
     suspend fun splitAt(clipId: String, splitAtMs: Long): Boolean = dao.splitAt(clipId, splitAtMs)
     suspend fun updateTrim(clip: TimelineClipEntity, startMs: Long, endMs: Long) {
         require(startMs >= 0L && endMs > startMs && endMs <= clip.durationMs)
