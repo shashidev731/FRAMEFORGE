@@ -37,8 +37,8 @@ interface TimelineClipDao {
     @Query("UPDATE timeline_clips SET gapBeforeMs = :gapMs WHERE clipId = :clipId")
     suspend fun setGapBefore(clipId: String, gapMs: Long)
 
-    @Query("UPDATE timeline_clips SET audioVolume = :volume WHERE clipId = :clipId")
-    suspend fun setAudioVolume(clipId: String, volume: Float)
+    @Query("UPDATE timeline_clips SET audioVolume = :volume, audioFadeInMs = :fadeInMs, audioFadeOutMs = :fadeOutMs WHERE clipId = :clipId")
+    suspend fun setAudioMix(clipId: String, volume: Float, fadeInMs: Long, fadeOutMs: Long)
 
     @Transaction
     suspend fun reflowTrack(projectId: String, trackIndex: Int) {

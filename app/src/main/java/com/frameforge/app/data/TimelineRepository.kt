@@ -81,9 +81,17 @@ class TimelineRepository(
 
     suspend fun setAudioVolume(clipId: String, volume: Float) {
         val clip = dao.find(clipId) ?: return
-        val normalized = normalizedClipAudioVolume(volume)
-        if (normalized == clip.audioVolume) return
-        recordSnapshot(clip.projectId) { dao.setAudioVolume(clipId, normalized) }
+        setAudioMix(clipId, volume, clip.audioFadeInMs, clip.audioFadeOutMs)
+    }
+
+    suspend fun setAudioMix(clipId: String, volume: Float, fadeInMs: Long, fadeOutMs: Long) {
+        val clip = dao.find(clipId) ?: return
+        val normalizedVolume = normalizedClipAudioVolume(volume)
+        val (normalizedFadeIn, normalizedFadeOut) = normalizedClipAudioFades(clip.durationMs, fadeInMs, fadeOutMs)
+        if (normalizedVolume == clip.audioVolume && normalizedFadeIn == clip.audioFadeInMs && normalizedFadeOut == clip.audioFadeOutMs) return
+        recordSnapshot(clip.projectId) {
+            dao.setAudioMix(clipId, normalizedVolume, normalizedFadeIn, normalizedFadeOut)
+        }
     }
 
     suspend fun moveEarlier(clipId: String) = move(clipId, -1)

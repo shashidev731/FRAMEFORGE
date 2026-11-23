@@ -11,6 +11,19 @@ internal fun visibleClipDurationMs(clip: TimelineClipEntity): Long = (normalized
 internal fun normalizedClipAudioVolume(volume: Float): Float =
     if (volume.isFinite()) volume.coerceIn(0f, 1f) else 1f
 
+/** Clamp clip fades and proportionally shorten them when they would overlap. */
+internal fun normalizedClipAudioFades(durationMs: Long, fadeInMs: Long, fadeOutMs: Long): Pair<Long, Long> {
+    val duration = durationMs.coerceAtLeast(0L)
+    var fadeIn = fadeInMs.coerceIn(0L, duration)
+    var fadeOut = fadeOutMs.coerceIn(0L, duration)
+    val total = fadeIn.toDouble() + fadeOut.toDouble()
+    if (total > duration.toDouble() && total > 0.0) {
+        fadeIn = (fadeIn.toDouble() * duration.toDouble() / total).toLong()
+        fadeOut = duration - fadeIn
+    }
+    return fadeIn to fadeOut
+}
+
 
 /**
  * Assigns sequential timeline positions within one track.

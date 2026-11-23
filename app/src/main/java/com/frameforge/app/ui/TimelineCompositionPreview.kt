@@ -38,6 +38,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
 import androidx.media3.common.audio.GainProcessor
+import androidx.media3.common.audio.DefaultGainProvider
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
@@ -51,6 +52,8 @@ import com.frameforge.app.data.TimelineClipEntity
 import com.frameforge.app.data.visibleClipDurationMs
 import com.frameforge.app.data.normalizedClipTrimStartMs
 import com.frameforge.app.data.normalizedClipTrimEndMs
+import com.frameforge.app.data.normalizedClipAudioVolume
+import com.frameforge.app.data.normalizedClipAudioFades
 import com.frameforge.app.ui.theme.Line
 import com.frameforge.app.ui.theme.Muted
 import com.frameforge.app.ui.theme.SurfaceWhite
@@ -368,15 +371,17 @@ private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long):
     val itemBuilder = EditedMediaItem.Builder(mediaItemBuilder.build())
         .setDurationUs(durationMs * 1_000L)
     if (clip.mimeType.startsWith("audio/")) {
-        val volume = clip.audioVolume.coerceIn(0f, 1f)
-        if (volume < 1f) {
-            itemBuilder.setEffects(Effects(
-                listOf(GainProcessor(object : GainProcessor.GainProvider {
-                    override fun getGainFactorAtSamplePosition(samplePosition: Long, sampleRate: Int): Float = volume
-                    override fun isUnityUntil(samplePosition: Long, sampleRate: Int): Long = C.TIME_UNSET
-                })),
-                emptyList()
-            ))
+        val volume = normalizedClipAudioVolume(clip.audioVolume)
+        val (fadeInMs, fadeOutMs) = normalizedClipAudioFades(durationMs, clip.audioFadeInMs, clip.audioFadeOutMs)
+        if (volume < 1f || fadeInMs > 0L || fadeOutMs > 0L) {
+            val gainBuilder = DefaultGainProvider.Builder(volume)
+            if (fadeInMs > 0L) {
+                gainBuilder.addFadeAt(0L, fadeInMs * 1_000L, DefaultGainProvider.FADE_IN_LINEAR)
+            }
+            if (fadeOutMs > 0L) {
+                gainBuilder.addFadeAt((durationMs - fadeOutMs).coerceAtLeast(0L) * 1_000L, fadeOutMs * 1_000L, DefaultGainProvider.FADE_OUT_LINEAR)
+            }
+            itemBuilder.setEffects(Effects(listOf(GainProcessor(gainBuilder.build())), emptyList()))
         }
     }
     return itemBuilder.build()

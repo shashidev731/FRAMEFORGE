@@ -227,6 +227,13 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                         var volumeDraft by remember(selectedClip.clipId, selectedClip.audioVolume) {
                             mutableFloatStateOf(normalizedClipAudioVolume(selectedClip.audioVolume))
                         }
+                        val fadeRangeMs = selectedClip.durationMs.coerceIn(1L, 5000L).toFloat()
+                        var fadeInDraft by remember(selectedClip.clipId, selectedClip.audioFadeInMs) {
+                            mutableFloatStateOf(selectedClip.audioFadeInMs.toFloat().coerceIn(0f, fadeRangeMs))
+                        }
+                        var fadeOutDraft by remember(selectedClip.clipId, selectedClip.audioFadeOutMs) {
+                            mutableFloatStateOf(selectedClip.audioFadeOutMs.toFloat().coerceIn(0f, fadeRangeMs))
+                        }
                         DisposableEffect(selectedClip.clipId) {
                             onDispose {
                                 runCatching { audioPlayer?.stop() }
@@ -291,9 +298,14 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                         }
                         Text("Clip volume • ${(volumeDraft * 100).toInt()}%", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
                         Slider(value = volumeDraft, onValueChange = { volumeDraft = it; runCatching { audioPlayer?.setVolume(it, it) } }, valueRange = 0f..1f, steps = 9)
+                        Text("Fade in • ${(fadeInDraft / 1000f).formatAudioFadeSeconds()}s", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Slider(value = fadeInDraft, onValueChange = { fadeInDraft = it }, valueRange = 0f..fadeRangeMs, steps = 9)
+                        Text("Fade out • ${(fadeOutDraft / 1000f).formatAudioFadeSeconds()}s", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Slider(value = fadeOutDraft, onValueChange = { fadeOutDraft = it }, valueRange = 0f..fadeRangeMs, steps = 9)
+                        Text("Fade timing is applied to timeline preview and export. Overlapping fade lengths are proportionally shortened.", color = SurfaceWhite.copy(alpha = .65f), style = MaterialTheme.typography.labelSmall)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Mute", color = SurfaceWhite.copy(alpha = .7f), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
-                            OutlinedButton(onClick = { scope.launch { repository.setAudioVolume(selectedClip.clipId, volumeDraft) } }, enabled = volumeDraft != selectedClip.audioVolume) { Text("Apply volume") }
+                            Text("0% muted • 100% original", color = SurfaceWhite.copy(alpha = .7f), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+                            OutlinedButton(onClick = { scope.launch { repository.setAudioMix(selectedClip.clipId, volumeDraft, fadeInDraft.toLong(), fadeOutDraft.toLong()) } }, enabled = volumeDraft != selectedClip.audioVolume || fadeInDraft.toLong() != selectedClip.audioFadeInMs || fadeOutDraft.toLong() != selectedClip.audioFadeOutMs) { Text("Apply audio") }
                         }
                     } else {
                         Text("Unsupported media preview.", color = SurfaceWhite.copy(alpha = .75f))
@@ -456,6 +468,8 @@ private fun readTimelineMediaDuration(context: android.content.Context, uriText:
         runCatching { retriever.release() }
     }
 }
+
+private fun Float.formatAudioFadeSeconds(): String = String.format(java.util.Locale.US, "%.1f", this)
 
 internal fun formatTimelineDuration(milliseconds: Long): String {
     val seconds = milliseconds.coerceAtLeast(0L) / 1000L
