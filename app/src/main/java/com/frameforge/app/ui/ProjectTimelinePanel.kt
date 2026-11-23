@@ -49,6 +49,9 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository: TimelineRepository) {
     val clips by repository.clips(projectId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val timelineHistory by repository.timelineHistory(projectId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val canUndoTimeline = timelineHistory.any { it.isApplied }
+    val canRedoTimeline = timelineHistory.any { !it.isApplied }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var selectedClipId by remember(projectId) { mutableStateOf<String?>(null) }
@@ -63,6 +66,8 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                 Text("Project timeline", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("${clips.map { it.trackIndex }.distinct().size} track(s) • ${clips.size} clip(s)", color = Muted, style = MaterialTheme.typography.bodySmall)
             }
+            TextButton(onClick = { scope.launch { repository.undo(projectId) } }, enabled = canUndoTimeline) { Text("Undo") }
+            TextButton(onClick = { scope.launch { repository.redo(projectId) } }, enabled = canRedoTimeline) { Text("Redo") }
             Box {
                 Button(onClick = { addMenu = true }, enabled = available.isNotEmpty()) {
                     Icon(Icons.Default.Add, null)

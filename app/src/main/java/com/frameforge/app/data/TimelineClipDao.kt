@@ -13,6 +13,9 @@ interface TimelineClipDao {
     @Query("SELECT * FROM timeline_clips WHERE projectId = :projectId ORDER BY trackIndex ASC, position ASC")
     fun observeClips(projectId: String): Flow<List<TimelineClipEntity>>
 
+    @Query("SELECT * FROM timeline_clips WHERE projectId = :projectId ORDER BY trackIndex ASC, position ASC")
+    suspend fun clipsForProject(projectId: String): List<TimelineClipEntity>
+
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM timeline_clips WHERE projectId = :projectId AND trackIndex = :trackIndex")
     suspend fun nextPosition(projectId: String, trackIndex: Int): Int
 
@@ -166,4 +169,13 @@ interface TimelineClipDao {
 
     @Query("DELETE FROM timeline_clips WHERE projectId = :projectId")
     suspend fun deleteForProject(projectId: String)
+
+
+    @Transaction
+    suspend fun restoreProjectClips(projectId: String, snapshot: List<TimelineClipEntity>) {
+        require(snapshot.all { it.projectId == projectId }) { "Snapshot contains clips from another project" }
+        deleteForProject(projectId)
+        snapshot.sortedWith(compareBy<TimelineClipEntity> { it.trackIndex }.thenBy { it.position })
+            .forEach { insert(it) }
+    }
 }
