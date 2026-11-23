@@ -44,6 +44,7 @@ fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
     var startSeconds by remember { mutableFloatStateOf(0f) }
     var endSeconds by remember { mutableFloatStateOf(0f) }
     var exporting by remember { mutableStateOf(false) }
+    var exportProgress by remember { mutableStateOf(0f) }
     var status by remember { mutableStateOf("Choose a video to preview and trim.") }
     var exportSummary by remember { mutableStateOf("") }
 
@@ -80,15 +81,19 @@ fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
         if (source != null && outputUri != null) {
             scope.launch {
                 exporting = true
+                exportProgress = 0f
                 status = "Exporting trimmed video…"
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
                         trimVideoToMp4(context, source, outputUri,
                             (startSeconds * 1_000_000).toLong(),
-                            (endSeconds * 1_000_000).toLong())
+                            (endSeconds * 1_000_000).toLong()) { progress ->
+                            exportProgress = progress
+                        }
                     }
                 }
                 exporting = false
+                exportProgress = 0f
                 if (result.isSuccess && projectId != null) {
                     runCatching {
                         editHistoryRepository?.record(projectId, "VIDEO_TRIM", exportSummary)
@@ -184,7 +189,7 @@ private fun formatSeconds(value: Float): String {
     return "%02d:%02d".format(total / 60, total % 60)
 }
 
-private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: Long, endUs: Long) {
+private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: Long, endUs: Long, onProgress: (Float) -> Unit = {}) {
     require(startUs >= 0L && endUs > startUs) { "Choose a valid trim range" }
     val extractor = MediaExtractor()
     var descriptor: ParcelFileDescriptor? = null
@@ -237,7 +242,12 @@ private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: L
                 samplesWritten++
             }
             if (!extractor.advance()) break
+            if (endUs > startUs) {
+                val progress = ((sampleTime - startUs).toFloat() / (endUs - startUs).toFloat()).coerceIn(0f, 1f)
+                onProgress(progress)
+            }
         }
+        onProgress(1f)
         require(samplesWritten > 0) { "No samples were available in the selected range" }
         muxer.stop()
         muxerStarted = false
