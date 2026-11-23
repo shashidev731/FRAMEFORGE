@@ -37,6 +37,7 @@ import java.io.File
 import kotlinx.coroutines.delay
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
+import androidx.media3.common.audio.GainProcessor
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
@@ -44,6 +45,7 @@ import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
+import androidx.media3.transformer.Effects
 import androidx.media3.ui.PlayerView
 import com.frameforge.app.data.TimelineClipEntity
 import com.frameforge.app.data.visibleClipDurationMs
@@ -363,7 +365,19 @@ private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long):
                 .build()
         )
     }
-    return EditedMediaItem.Builder(mediaItemBuilder.build())
+    val itemBuilder = EditedMediaItem.Builder(mediaItemBuilder.build())
         .setDurationUs(durationMs * 1_000L)
-        .build()
+    if (clip.mimeType.startsWith("audio/")) {
+        val volume = clip.audioVolume.coerceIn(0f, 1f)
+        if (volume < 1f) {
+            itemBuilder.setEffects(Effects(
+                listOf(GainProcessor(object : GainProcessor.GainProvider {
+                    override fun getGainFactorAtSamplePosition(samplePosition: Long, sampleRate: Int): Float = volume
+                    override fun isUnityUntil(samplePosition: Long, sampleRate: Int): Long = C.TIME_UNSET
+                })),
+                emptyList()
+            ))
+        }
+    }
+    return itemBuilder.build()
 }

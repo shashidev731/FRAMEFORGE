@@ -7,6 +7,10 @@ internal fun normalizedClipTrimEndMs(clip: TimelineClipEntity): Long = (clip.tri
 
 internal fun visibleClipDurationMs(clip: TimelineClipEntity): Long = (normalizedClipTrimEndMs(clip) - normalizedClipTrimStartMs(clip)).coerceAtLeast(0L)
 
+/** Keeps persisted audio volume finite and in the supported 0–100% range. */
+internal fun normalizedClipAudioVolume(volume: Float): Float =
+    if (volume.isFinite()) volume.coerceIn(0f, 1f) else 1f
+
 
 /**
  * Assigns sequential timeline positions within one track.

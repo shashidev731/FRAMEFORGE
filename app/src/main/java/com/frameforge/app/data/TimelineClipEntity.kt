@@ -22,5 +22,6 @@ data class TimelineClipEntity(
     @ColumnInfo(defaultValue = "0") val durationMs: Long = 0L,
     @ColumnInfo(defaultValue = "0") val timelineStartMs: Long = 0L,
     @ColumnInfo(defaultValue = "0") val gapBeforeMs: Long = 0L,
+    @ColumnInfo(defaultValue = "1.0") val audioVolume: Float = 1f,
     val createdAt: Long
 )

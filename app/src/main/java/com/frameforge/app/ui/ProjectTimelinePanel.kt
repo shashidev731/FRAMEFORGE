@@ -40,6 +40,7 @@ import com.frameforge.app.data.TimelineClipEntity
 import com.frameforge.app.data.TimelineRepository
 import com.frameforge.app.data.normalizedClipTrimStartMs
 import com.frameforge.app.data.normalizedClipTrimEndMs
+import com.frameforge.app.data.normalizedClipAudioVolume
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -218,6 +219,9 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                         var audioPlaying by remember(selectedClip.clipId) { mutableStateOf(false) }
                         var audioLoading by remember(selectedClip.clipId) { mutableStateOf(false) }
                         var audioError by remember(selectedClip.clipId) { mutableStateOf<String?>(null) }
+                        var volumeDraft by remember(selectedClip.clipId, selectedClip.audioVolume) {
+                            mutableFloatStateOf(normalizedClipAudioVolume(selectedClip.audioVolume))
+                        }
                         DisposableEffect(selectedClip.clipId) {
                             onDispose {
                                 runCatching { audioPlayer?.stop() }
@@ -247,6 +251,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                                         runCatching {
                                             MediaPlayer().also { player ->
                                                 audioPlayer = player
+                                                player.setVolume(volumeDraft, volumeDraft)
                                                 player.setOnPreparedListener {
                                                     audioLoading = false
                                                     it.start()
@@ -278,6 +283,12 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             ) { Text(if (audioLoading) "Loading…" else if (audioPlaying) "Pause audio" else "Play audio") }
                             Text(audioError ?: "Audio preview", color = if (audioError == null) SurfaceWhite.copy(alpha = .75f) else MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("Clip volume • ${(volumeDraft * 100).toInt()}%", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Slider(value = volumeDraft, onValueChange = { volumeDraft = it; runCatching { audioPlayer?.setVolume(it, it) } }, valueRange = 0f..1f, steps = 9)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Mute", color = SurfaceWhite.copy(alpha = .7f), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+                            OutlinedButton(onClick = { scope.launch { repository.setAudioVolume(selectedClip.clipId, volumeDraft) } }, enabled = volumeDraft != selectedClip.audioVolume) { Text("Apply volume") }
                         }
                     } else {
                         Text("Unsupported media preview.", color = SurfaceWhite.copy(alpha = .75f))

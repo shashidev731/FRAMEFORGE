@@ -35,6 +35,9 @@ class TimelineRepository(private val dao: TimelineClipDao) {
     }
     suspend fun setGapBefore(clipId: String, gapMs: Long) =
         dao.updateGapBeforeAndReflow(clipId, gapMs.coerceAtLeast(0L))
+
+    suspend fun setAudioVolume(clipId: String, volume: Float) =
+        dao.setAudioVolume(clipId, normalizedClipAudioVolume(volume))
     suspend fun moveEarlier(clipId: String) = dao.move(clipId, -1)
     suspend fun moveLater(clipId: String) = dao.move(clipId, 1)
     suspend fun moveToPosition(clipId: String, position: Int) = dao.moveToPosition(clipId, position)
