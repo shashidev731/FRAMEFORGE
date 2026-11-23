@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface EditOperationDao {
-    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId ORDER BY sequence ASC")
+    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' ORDER BY sequence ASC")
     fun observeOperations(projectId: String): Flow<List<EditOperationEntity>>
 
     @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'timeline_snapshot' ORDER BY sequence ASC")
@@ -47,7 +47,7 @@ interface EditOperationDao {
 
 
     suspend fun appendTimelineSnapshot(projectId: String, payload: String, operationId: String, createdAt: Long) {
-        discardTimelineRedo(projectId)
+        discardRedoBranch(projectId)
         val sequence = nextSequence(projectId)
         insert(EditOperationEntity(operationId, projectId, sequence, "timeline_snapshot", payload, createdAt))
     }
@@ -58,16 +58,16 @@ interface EditOperationDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(operation: EditOperationEntity)
 
-    @Query("UPDATE edit_operations SET isApplied = 0 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND isApplied = 1 ORDER BY sequence DESC LIMIT 1)")
+    @Query("UPDATE edit_operations SET isApplied = 0 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 1 ORDER BY sequence DESC LIMIT 1)")
     suspend fun undoLatest(projectId: String): Int
 
-    @Query("UPDATE edit_operations SET isApplied = 1 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND isApplied = 0 ORDER BY sequence ASC LIMIT 1)")
+    @Query("UPDATE edit_operations SET isApplied = 1 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 0 ORDER BY sequence ASC LIMIT 1)")
     suspend fun redoNext(projectId: String): Int
 
     @Query("DELETE FROM edit_operations WHERE projectId = :projectId AND isApplied = 0")
     suspend fun discardRedoBranch(projectId: String)
 
-    @Query("SELECT COUNT(*) FROM edit_operations WHERE projectId = :projectId AND isApplied = 1")
+    @Query("SELECT COUNT(*) FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 1")
     suspend fun appliedCount(projectId: String): Int
 
     @Query("DELETE FROM edit_operations WHERE projectId = :projectId")

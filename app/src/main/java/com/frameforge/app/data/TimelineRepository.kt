@@ -82,7 +82,7 @@ class TimelineRepository(
     suspend fun setAudioVolume(clipId: String, volume: Float) {
         val clip = dao.find(clipId) ?: return
         val normalized = normalizedClipAudioVolume(volume)
-        if (normalized == normalizedClipAudioVolume(clip.audioVolume)) return
+        if (normalized == clip.audioVolume) return
         recordSnapshot(clip.projectId) { dao.setAudioVolume(clipId, normalized) }
     }
 
