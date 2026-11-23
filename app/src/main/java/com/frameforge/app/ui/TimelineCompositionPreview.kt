@@ -38,7 +38,6 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.audio.GainProcessor
 import androidx.media3.common.audio.DefaultGainProvider
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
@@ -298,6 +297,10 @@ fun TimelineCompositionPreview(clips: List<TimelineClipEntity>, onPlayheadChange
     }
 }
 
+
+private const val AUDIO_TRACK_TYPE = 1
+private const val VIDEO_TRACK_TYPE = 2
+
 @OptIn(UnstableApi::class)
 private fun buildTimelineComposition(clips: List<TimelineClipEntity>): Composition? {
     val visualClips = clips.asSequence()
@@ -312,7 +315,7 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): Compositi
 
     if (visualClips.none { visibleClipDurationMs(it) > 0L }) return null
 
-    val visualSequence = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_VIDEO))
+    val visualSequence = EditedMediaItemSequence.Builder(setOf(VIDEO_TRACK_TYPE))
     var visualCursorMs = 0L
     visualClips.forEach { clip ->
         val durationMs = visibleClipDurationMs(clip)
@@ -330,7 +333,7 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): Compositi
     val sequences = buildList {
         add(visualSequence.build())
         if (audioClips.any { visibleClipDurationMs(it) > 0L }) {
-            val audioSequence = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO))
+            val audioSequence = EditedMediaItemSequence.Builder(setOf(AUDIO_TRACK_TYPE))
             var audioCursorMs = 0L
             audioClips.forEach { clip ->
                 val durationMs = visibleClipDurationMs(clip)
