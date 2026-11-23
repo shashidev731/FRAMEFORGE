@@ -36,7 +36,6 @@ import androidx.media3.transformer.ProgressHolder
 import java.io.File
 import kotlinx.coroutines.delay
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.C
 import androidx.media3.common.audio.GainProcessor
 import androidx.media3.common.audio.DefaultGainProvider
 import androidx.media3.common.MediaItem

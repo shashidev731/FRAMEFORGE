@@ -9,15 +9,18 @@ internal data class TimelineSnapshotPair(
 )
 
 internal object TimelineSnapshotCodec {
-    private const val VERSION = "TSH1"
+    private const val VERSION = "TSH2"
+    private const val LEGACY_VERSION = "TSH1"
 
     fun encode(before: List<TimelineClipEntity>, after: List<TimelineClipEntity>): String =
         listOf(VERSION, encodeList(before), encodeList(after)).joinToString("|")
 
     fun decode(payload: String): TimelineSnapshotPair {
         val fields = payload.split("|")
-        require(fields.size == 3 && fields[0] == VERSION) { "Unsupported timeline history snapshot" }
-        return TimelineSnapshotPair(decodeList(fields[1]), decodeList(fields[2]))
+        require(fields.size == 3 && (fields[0] == VERSION || fields[0] == LEGACY_VERSION)) {
+            "Unsupported timeline history snapshot"
+        }
+        return TimelineSnapshotPair(decodeList(fields[1], fields[0]), decodeList(fields[2], fields[0]))
     }
 
     private fun encodeList(clips: List<TimelineClipEntity>): String {
@@ -37,18 +40,21 @@ internal object TimelineSnapshotCodec {
                     clip.timelineStartMs.toString(),
                     clip.gapBeforeMs.toString(),
                     clip.audioVolume.toString(),
+                    clip.audioFadeInMs.toString(),
+                    clip.audioFadeOutMs.toString(),
                     clip.createdAt.toString()
                 ).joinToString("|")
             }
         return encodeText(lines)
     }
 
-    private fun decodeList(encoded: String): List<TimelineClipEntity> {
+    private fun decodeList(encoded: String, version: String): List<TimelineClipEntity> {
         val text = decodeText(encoded)
         if (text.isEmpty()) return emptyList()
         return text.split("\n").map { line ->
             val fields = line.split("|")
-            require(fields.size == 14) { "Malformed timeline history clip" }
+            val expectedFields = if (version == LEGACY_VERSION) 14 else 16
+            require(fields.size == expectedFields) { "Malformed timeline history clip" }
             TimelineClipEntity(
                 clipId = decodeText(fields[0]),
                 projectId = decodeText(fields[1]),
@@ -63,7 +69,9 @@ internal object TimelineSnapshotCodec {
                 timelineStartMs = fields[10].toLong(),
                 gapBeforeMs = fields[11].toLong(),
                 audioVolume = fields[12].toFloat(),
-                createdAt = fields[13].toLong()
+                audioFadeInMs = if (version == LEGACY_VERSION) 0L else fields[13].toLong(),
+                audioFadeOutMs = if (version == LEGACY_VERSION) 0L else fields[14].toLong(),
+                createdAt = fields[if (version == LEGACY_VERSION) 13 else 15].toLong()
             )
         }
     }
