@@ -68,6 +68,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             }
             TextButton(onClick = { scope.launch { repository.undo(projectId) } }, enabled = canUndoTimeline) { Text("Undo") }
             TextButton(onClick = { scope.launch { repository.redo(projectId) } }, enabled = canRedoTimeline) { Text("Redo") }
+            TextButton(onClick = { scope.launch { repository.clear(projectId) } }, enabled = clips.isNotEmpty()) { Text("Clear") }
             Box {
                 Button(onClick = { addMenu = true }, enabled = available.isNotEmpty()) {
                     Icon(Icons.Default.Add, null)

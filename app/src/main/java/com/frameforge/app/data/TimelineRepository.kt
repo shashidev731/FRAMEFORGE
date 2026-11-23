@@ -55,6 +55,11 @@ class TimelineRepository(
         recordSnapshot(clip.projectId) { dao.removeAndCompact(clipId) }
     }
 
+    suspend fun clear(projectId: String) {
+        require(projectId.isNotBlank())
+        recordSnapshot(projectId) { dao.deleteForProject(projectId) }
+    }
+
     suspend fun duplicate(clipId: String): String? {
         val clip = dao.find(clipId) ?: return null
         return recordSnapshot(clip.projectId) { dao.duplicateClip(clipId) }
