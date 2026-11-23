@@ -160,6 +160,9 @@ interface TimelineClipDao {
         val destinationPosition = nextPosition(current.projectId, targetTrackIndex)
         moveToTemporary(clipId)
         setTrackAndPosition(clipId, targetTrackIndex, destinationPosition)
+        val remaining = clipsInTrack(current.projectId, current.trackIndex).sortedBy { it.position }
+        moveTrackToTemporaryPositions(current.projectId, current.trackIndex)
+        remaining.forEachIndexed { index, item -> setPosition(item.clipId, index) }
         reflowTrack(current.projectId, current.trackIndex)
         reflowTrack(current.projectId, targetTrackIndex)
     }
