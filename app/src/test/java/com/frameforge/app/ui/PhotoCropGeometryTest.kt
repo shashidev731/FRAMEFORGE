@@ -48,7 +48,7 @@ class PhotoCropGeometryTest {
     fun cropPositionIsClampedAndAlwaysStaysInsideSource() {
         val crop = calculatePhotoCropRect(640, 480, 0.75f, 0, 9f, -9f)
 
-        assertEquals(0, crop.left)
+        assertEquals(280, crop.left)
         assertEquals(0, crop.top)
         assertTrue(crop.left + crop.width <= 640)
         assertTrue(crop.top + crop.height <= 480)
