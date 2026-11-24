@@ -48,6 +48,8 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
     var overlayText by remember { mutableStateOf("") }
     var rotation by remember { mutableIntStateOf(0) }
     var cropRatio by remember { mutableStateOf("Original") }
+    var cropHorizontalPosition by remember { mutableFloatStateOf(0f) }
+    var cropVerticalPosition by remember { mutableFloatStateOf(0f) }
     var isProcessing by remember { mutableStateOf(false) }
     var showOriginal by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Choose a photo to start editing.") }
@@ -73,6 +75,8 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 overlayText = ""
                 rotation = 0
                 cropRatio = "Original"
+                cropHorizontalPosition = 0f
+                cropVerticalPosition = 0f
                 showOriginal = false
                 status = if (decoded == null) "This image could not be opened." else "Original loaded. Adjust the controls; the source file stays unchanged."
                 isProcessing = false
@@ -102,12 +106,12 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
         }
     }
 
-    LaunchedEffect(sourceBitmap, exposure, saturation, contrast, warmth, overlayText, rotation, cropRatio) {
+    LaunchedEffect(sourceBitmap, exposure, saturation, contrast, warmth, overlayText, rotation, cropRatio, cropHorizontalPosition, cropVerticalPosition) {
         val source = sourceBitmap ?: run { previewBitmap = null; return@LaunchedEffect }
         isProcessing = true
         delay(120)
         val result = withContext(Dispatchers.Default) {
-            runCatching { renderPhotoEdit(source, exposure, saturation, contrast, warmth, overlayText, rotation, cropRatio) }.getOrNull()
+            runCatching { renderPhotoEdit(source, exposure, saturation, contrast, warmth, overlayText, rotation, cropRatio, cropHorizontalPosition, cropVerticalPosition) }.getOrNull()
         }
         previewBitmap = result
         isProcessing = false
@@ -175,6 +179,21 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                             FilterChip(selected = cropRatio == ratio, onClick = { cropRatio = ratio }, label = { Text(ratio) })
                         }
                     }
+                    if (cropRatio != "Original" || rotation % 180 != 0) {
+                        Text("Crop position", fontWeight = FontWeight.Medium)
+                        Text("Horizontal  •  ${(cropHorizontalPosition * 100f).toInt()}%", color = Muted)
+                        Slider(
+                            value = cropHorizontalPosition,
+                            onValueChange = { cropHorizontalPosition = it },
+                            valueRange = -1f..1f
+                        )
+                        Text("Vertical  •  ${(cropVerticalPosition * 100f).toInt()}%", color = Muted)
+                        Slider(
+                            value = cropVerticalPosition,
+                            onValueChange = { cropVerticalPosition = it },
+                            valueRange = -1f..1f
+                        )
+                    }
                     Text("Rotation", fontWeight = FontWeight.Medium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { rotation = (rotation + 270) % 360 }) {
@@ -183,7 +202,17 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                         OutlinedButton(onClick = { rotation = (rotation + 90) % 360 }) {
                             Icon(Icons.Default.RotateRight, null); Text("Right")
                         }
-                        TextButton(onClick = { exposure = 0f; saturation = 1f; contrast = 1f; warmth = 0f; overlayText = ""; rotation = 0; cropRatio = "Original" }) {
+                        TextButton(onClick = {
+                            exposure = 0f
+                            saturation = 1f
+                            contrast = 1f
+                            warmth = 0f
+                            overlayText = ""
+                            rotation = 0
+                            cropRatio = "Original"
+                            cropHorizontalPosition = 0f
+                            cropVerticalPosition = 0f
+                        }) {
                             Text("Reset")
                         }
                     }
@@ -192,7 +221,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
             Button(
                 onClick = {
                     exportBitmap = previewBitmap
-                    exportSummary = "crop=$cropRatio; exposure=$exposure EV; saturation=$saturation; contrast=$contrast; warmth=$warmth; rotation=$rotation; text=$overlayText"
+                    exportSummary = "crop=$cropRatio; cropX=$cropHorizontalPosition; cropY=$cropVerticalPosition; exposure=$exposure EV; saturation=$saturation; contrast=$contrast; warmth=$warmth; rotation=$rotation; text=$overlayText"
                     savePicker.launch("FRAMEFORGE_${System.currentTimeMillis()}.jpg")
                 },
                 enabled = previewBitmap != null && !isProcessing,
@@ -230,7 +259,9 @@ private fun renderPhotoEdit(
     warmth: Float,
     overlayText: String,
     rotation: Int,
-    cropRatio: String
+    cropRatio: String,
+    cropHorizontalPosition: Float,
+    cropVerticalPosition: Float
 ): Bitmap {
     val targetRatio = when (cropRatio) {
         "1:1" -> 1f
@@ -238,22 +269,15 @@ private fun renderPhotoEdit(
         "9:16" -> 9f / 16f
         else -> source.width.toFloat() / source.height.toFloat()
     }
-    // For quarter-turn rotations, crop in the inverse ratio so the final rendered
-    // image matches the selected aspect ratio after rotation.
-    val cropTargetRatio = if (rotation % 180 != 0) 1f / targetRatio else targetRatio
-    val sourceRatio = source.width.toFloat() / source.height.toFloat()
-    val cropWidth: Int
-    val cropHeight: Int
-    if (sourceRatio > cropTargetRatio) {
-        cropHeight = source.height
-        cropWidth = (cropHeight * cropTargetRatio).toInt().coerceIn(1, source.width)
-    } else {
-        cropWidth = source.width
-        cropHeight = (cropWidth / cropTargetRatio).toInt().coerceIn(1, source.height)
-    }
-    val left = (source.width - cropWidth) / 2
-    val top = (source.height - cropHeight) / 2
-    val cropped = Bitmap.createBitmap(source, left, top, cropWidth, cropHeight)
+    val crop = calculatePhotoCropRect(
+        sourceWidth = source.width,
+        sourceHeight = source.height,
+        targetRatio = targetRatio,
+        rotationDegrees = rotation,
+        horizontalPosition = cropHorizontalPosition,
+        verticalPosition = cropVerticalPosition
+    )
+    val cropped = Bitmap.createBitmap(source, crop.left, crop.top, crop.width, crop.height)
 
     val brightness = Math.pow(2.0, exposure.toDouble()).toFloat()
     val factor = brightness * contrast
