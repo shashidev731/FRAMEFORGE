@@ -4,9 +4,29 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
 }
+
+// Release signing is optional for local/CI builds. Never fall back to the debug
+// certificate: Play Store uploads must use a private release keystore.
+val releaseStoreFile = providers.gradleProperty("FRAMEFORGE_RELEASE_STORE_FILE").orNull
+    ?: providers.environmentVariable("FRAMEFORGE_RELEASE_STORE_FILE").orNull
+val releaseStorePassword = providers.gradleProperty("FRAMEFORGE_RELEASE_STORE_PASSWORD").orNull
+    ?: providers.environmentVariable("FRAMEFORGE_RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.gradleProperty("FRAMEFORGE_RELEASE_KEY_ALIAS").orNull
+    ?: providers.environmentVariable("FRAMEFORGE_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.gradleProperty("FRAMEFORGE_RELEASE_KEY_PASSWORD").orNull
+    ?: providers.environmentVariable("FRAMEFORGE_RELEASE_KEY_PASSWORD").orNull
+
+val hasReleaseSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.frameforge.app"
     compileSdk = 36
+
     defaultConfig {
         applicationId = "com.frameforge.app"
         minSdk = 26
@@ -14,7 +34,22 @@ android {
         versionCode = 1
         versionName = "0.1.0"
     }
-    buildFeatures { compose = true }
+
+    buildFeatures {
+        compose = true
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -22,15 +57,22 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            // Without secrets, Gradle creates an unsigned release APK.
+            // With all four secrets, it uses the configured private keystore.
+            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else null
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
