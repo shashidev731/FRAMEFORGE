@@ -510,7 +510,7 @@ private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long):
         when (clip.filterEffect.uppercase()) {
             "BW", "GRAYSCALE" -> videoEffects.add(RgbFilter.createGrayscaleFilter())
             "INVERT" -> videoEffects.add(RgbFilter.createInvertedFilter())
-            "CONTRAST" -> videoEffects.add(Contrast(1.35f))
+            "CONTRAST" -> videoEffects.add(Contrast(0.65f))
             "BRIGHT" -> videoEffects.add(Brightness(0.12f))
             "WARM" -> videoEffects.add(RgbAdjustment.Builder().setRedScale(1.15f).setBlueScale(0.85f).build())
             "COOL" -> videoEffects.add(RgbAdjustment.Builder().setRedScale(0.85f).setBlueScale(1.15f).build())

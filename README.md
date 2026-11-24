@@ -32,33 +32,32 @@ Package: `com.frameforge.app`
 
 ### 🤖 AI Studio
 - **Smart Scene Detection**: On-device video frame variance analyzer that identifies cut points and shot transitions without cloud dependencies.
-- **AI Image Enhancer**: Dynamic range and luminance analyzer offering tailored adjustment recommendations.
-- **Speech-to-Text & Subtitles**: Provider interface for Gemini 1.5 with secure local key storage in SharedPreferences.
+- **AI Image Enhancer**: Dynamic range and luminance analyzer offering tailored adjustment recommendations (heuristic analysis, not generative image editing).
+- **Speech-to-Text & Subtitles**: Gemini provider configuration UI is present; end-to-end timeline transcription and caption insertion are not yet implemented.
 
 ### 🚀 Media Export Engine
 - Output resolution presets: `720p` (HD), `1080p` (Full HD), and `4K` (Ultra HD).
 - Target frame rates: `24 fps`, `30 fps`, and `60 fps`.
 - Video codecs: `H.264` (AVC) and `H.265` (HEVC) in MP4 containers.
-- Real-time progress bar (0% - 100%), cancellation support, and direct Android system share sheet invocation.
+- Real-time progress bar, cancellation support, and direct Android system share sheet invocation.
 
 ### 🎨 Design System
-- Material 3 with a custom dark theme enabled by default (`#0F1115` canvas).
-- Clean, accessible typography and high touch-target compliance.
-- Theme toggle (Dark / Light) in Settings.
-- Cache cleanup utility to manage temporary device storage.
+- Material 3 with a custom dark theme enabled by default.
+- Dark/light theme switching in Settings.
+- Cache cleanup utility.
 
 ---
 
 ## Technical Specifications
 
-- **Target SDK**: 35 (Android 15)
-- **Compile SDK**: 36 (Android 16)
-- **Min SDK**: 26 (Android 8.0 Oreo)
-- **Language**: Kotlin 2.0.21
-- **UI Framework**: Jetpack Compose (BOM 2024.12.01) + Material 3
-- **Media Engine**: AndroidX Media3 1.9.0 (Transformer, Effect, UI, Common)
-- **Database**: Room 2.6.1 (Schema v10 with migrations 1 through 10)
-- **Build System**: Gradle 8.11.1 + AGP 8.10.1
+- **Target SDK**: 35
+- **Compile SDK**: 36
+- **Min SDK**: 26
+- **Language**: Kotlin
+- **UI Framework**: Jetpack Compose + Material 3
+- **Media Engine**: AndroidX Media3 1.9.0
+- **Database**: Room 2.6.1 (schema v10)
+- **Build System**: Gradle / Android Gradle Plugin
 
 ---
 
@@ -68,13 +67,34 @@ Package: `com.frameforge.app`
 # Build debug APK
 ./gradlew :app:assembleDebug
 
-# Build optimized release APK
+# Build release APK (unsigned unless release signing is configured)
 ./gradlew :app:assembleRelease
 
 # Run unit tests
 ./gradlew :app:testDebugUnitTest
+
+# Run Android lint
+./gradlew :app:lintDebug
 ```
 
-### Artifacts Generated
-- Debug APK: `app/build/outputs/apk/debug/app-debug.apk` (22.7 MB)
-- Release APK: `app/build/outputs/apk/release/app-release.apk` (15.3 MB)
+### Release signing (recommended before distribution)
+
+The release build must never use the debug certificate. Configure a private upload/release keystore through environment variables or Gradle project properties:
+
+- `FRAMEFORGE_RELEASE_STORE_FILE`: path to the keystore file
+- `FRAMEFORGE_RELEASE_STORE_PASSWORD`: keystore password
+- `FRAMEFORGE_RELEASE_KEY_ALIAS`: key alias
+- `FRAMEFORGE_RELEASE_KEY_PASSWORD`: key password
+
+For local builds, pass the same values as `-PFRAMEFORGE_RELEASE_STORE_FILE=...` etc., or export them as environment variables. For GitHub Actions, store the values as encrypted repository Actions secrets and write the keystore file from a base64-encoded secret during the workflow. Never commit the keystore, passwords, or private key to Git.
+
+If all four values are absent, `assembleRelease` produces an unsigned APK that is suitable for build validation only, not installation as a trusted production release. If only some values are supplied, the build remains unsigned; supply all four values together.
+
+Minification remains disabled until release-specific keep rules and runtime smoke tests are verified.
+
+---
+
+## Current verification status
+
+A successful CI build confirms compilation and the automated tests included in that workflow; it does not establish full device compatibility or feature completeness. Physical-device testing, export verification across representative codecs, end-to-end speech transcription, and production signing remain release gates.
+

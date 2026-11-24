@@ -237,7 +237,18 @@ private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: L
                     throw IOException("A media sample exceeds the safe export buffer. Try a shorter or lower-resolution source.")
                 }
                 if (baseTimeUs < 0L) baseTimeUs = sampleTime
-                info.set(0, size, (sampleTime - baseTimeUs).coerceAtLeast(0L), extractor.sampleFlags)
+                val sampleFlags = extractor.sampleFlags
+                if ((sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) {
+                    throw IOException("Encrypted media samples cannot be copied by this export path")
+                }
+                var codecFlags = 0
+                if ((sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
+                    codecFlags = codecFlags or MediaCodec.BUFFER_FLAG_KEY_FRAME
+                }
+                if ((sampleFlags and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME) != 0) {
+                    codecFlags = codecFlags or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
+                }
+                info.set(0, size, (sampleTime - baseTimeUs).coerceAtLeast(0L), codecFlags)
                 muxer.writeSampleData(targetTrack, buffer, info)
                 samplesWritten++
             }
