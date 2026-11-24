@@ -10,5 +10,10 @@
 .cxx
 *.apk
 *.aab
+*.jks
+*.keystore
+/build-signing/
+*.iml
+.gradle/
 build/
 app/build/
