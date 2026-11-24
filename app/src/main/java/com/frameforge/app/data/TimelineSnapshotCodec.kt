@@ -9,7 +9,8 @@ internal data class TimelineSnapshotPair(
 )
 
 internal object TimelineSnapshotCodec {
-    private const val VERSION = "TSH2"
+    private const val VERSION = "TSH3"
+    private const val VERSION_TSH2 = "TSH2"
     private const val LEGACY_VERSION = "TSH1"
 
     fun encode(before: List<TimelineClipEntity>, after: List<TimelineClipEntity>): String =
@@ -17,7 +18,7 @@ internal object TimelineSnapshotCodec {
 
     fun decode(payload: String): TimelineSnapshotPair {
         val fields = payload.split("|")
-        require(fields.size == 3 && (fields[0] == VERSION || fields[0] == LEGACY_VERSION)) {
+        require(fields.size == 3 && (fields[0] == VERSION || fields[0] == VERSION_TSH2 || fields[0] == LEGACY_VERSION)) {
             "Unsupported timeline history snapshot"
         }
         return TimelineSnapshotPair(decodeList(fields[1], fields[0]), decodeList(fields[2], fields[0]))
@@ -42,6 +43,10 @@ internal object TimelineSnapshotCodec {
                     clip.audioVolume.toString(),
                     clip.audioFadeInMs.toString(),
                     clip.audioFadeOutMs.toString(),
+                    clip.speed.toString(),
+                    encodeText(clip.filterEffect),
+                    clip.rotationDegrees.toString(),
+                    encodeText(clip.textOverlay),
                     clip.createdAt.toString()
                 ).joinToString("|")
             }
@@ -53,26 +58,80 @@ internal object TimelineSnapshotCodec {
         if (text.isEmpty()) return emptyList()
         return text.split("\n").map { line ->
             val fields = line.split("|")
-            val expectedFields = if (version == LEGACY_VERSION) 14 else 16
+            val expectedFields = when (version) {
+                LEGACY_VERSION -> 14
+                VERSION_TSH2 -> 16
+                else -> 20
+            }
             require(fields.size == expectedFields) { "Malformed timeline history clip" }
-            TimelineClipEntity(
-                clipId = decodeText(fields[0]),
-                projectId = decodeText(fields[1]),
-                mediaUri = decodeText(fields[2]),
-                displayName = decodeText(fields[3]),
-                mimeType = decodeText(fields[4]),
-                trackIndex = fields[5].toInt(),
-                position = fields[6].toInt(),
-                trimStartMs = fields[7].toLong(),
-                trimEndMs = fields[8].takeIf { it.isNotEmpty() }?.toLong(),
-                durationMs = fields[9].toLong(),
-                timelineStartMs = fields[10].toLong(),
-                gapBeforeMs = fields[11].toLong(),
-                audioVolume = fields[12].toFloat(),
-                audioFadeInMs = if (version == LEGACY_VERSION) 0L else fields[13].toLong(),
-                audioFadeOutMs = if (version == LEGACY_VERSION) 0L else fields[14].toLong(),
-                createdAt = fields[if (version == LEGACY_VERSION) 13 else 15].toLong()
-            )
+            when (version) {
+                LEGACY_VERSION -> TimelineClipEntity(
+                    clipId = decodeText(fields[0]),
+                    projectId = decodeText(fields[1]),
+                    mediaUri = decodeText(fields[2]),
+                    displayName = decodeText(fields[3]),
+                    mimeType = decodeText(fields[4]),
+                    trackIndex = fields[5].toInt(),
+                    position = fields[6].toInt(),
+                    trimStartMs = fields[7].toLong(),
+                    trimEndMs = fields[8].takeIf { it.isNotEmpty() }?.toLong(),
+                    durationMs = fields[9].toLong(),
+                    timelineStartMs = fields[10].toLong(),
+                    gapBeforeMs = fields[11].toLong(),
+                    audioVolume = fields[12].toFloat(),
+                    audioFadeInMs = 0L,
+                    audioFadeOutMs = 0L,
+                    speed = 1.0f,
+                    filterEffect = "NONE",
+                    rotationDegrees = 0,
+                    textOverlay = "",
+                    createdAt = fields[13].toLong()
+                )
+                VERSION_TSH2 -> TimelineClipEntity(
+                    clipId = decodeText(fields[0]),
+                    projectId = decodeText(fields[1]),
+                    mediaUri = decodeText(fields[2]),
+                    displayName = decodeText(fields[3]),
+                    mimeType = decodeText(fields[4]),
+                    trackIndex = fields[5].toInt(),
+                    position = fields[6].toInt(),
+                    trimStartMs = fields[7].toLong(),
+                    trimEndMs = fields[8].takeIf { it.isNotEmpty() }?.toLong(),
+                    durationMs = fields[9].toLong(),
+                    timelineStartMs = fields[10].toLong(),
+                    gapBeforeMs = fields[11].toLong(),
+                    audioVolume = fields[12].toFloat(),
+                    audioFadeInMs = fields[13].toLong(),
+                    audioFadeOutMs = fields[14].toLong(),
+                    speed = 1.0f,
+                    filterEffect = "NONE",
+                    rotationDegrees = 0,
+                    textOverlay = "",
+                    createdAt = fields[15].toLong()
+                )
+                else -> TimelineClipEntity(
+                    clipId = decodeText(fields[0]),
+                    projectId = decodeText(fields[1]),
+                    mediaUri = decodeText(fields[2]),
+                    displayName = decodeText(fields[3]),
+                    mimeType = decodeText(fields[4]),
+                    trackIndex = fields[5].toInt(),
+                    position = fields[6].toInt(),
+                    trimStartMs = fields[7].toLong(),
+                    trimEndMs = fields[8].takeIf { it.isNotEmpty() }?.toLong(),
+                    durationMs = fields[9].toLong(),
+                    timelineStartMs = fields[10].toLong(),
+                    gapBeforeMs = fields[11].toLong(),
+                    audioVolume = fields[12].toFloat(),
+                    audioFadeInMs = fields[13].toLong(),
+                    audioFadeOutMs = fields[14].toLong(),
+                    speed = fields[15].toFloatOrNull() ?: 1.0f,
+                    filterEffect = decodeText(fields[16]),
+                    rotationDegrees = fields[17].toIntOrNull() ?: 0,
+                    textOverlay = decodeText(fields[18]),
+                    createdAt = fields[19].toLong()
+                )
+            }
         }
     }
 

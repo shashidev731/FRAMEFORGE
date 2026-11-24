@@ -40,6 +40,18 @@ interface TimelineClipDao {
     @Query("UPDATE timeline_clips SET audioVolume = :volume, audioFadeInMs = :fadeInMs, audioFadeOutMs = :fadeOutMs WHERE clipId = :clipId")
     suspend fun setAudioMix(clipId: String, volume: Float, fadeInMs: Long, fadeOutMs: Long)
 
+    @Query("UPDATE timeline_clips SET speed = :speed WHERE clipId = :clipId")
+    suspend fun setSpeed(clipId: String, speed: Float)
+
+    @Query("UPDATE timeline_clips SET filterEffect = :filterEffect WHERE clipId = :clipId")
+    suspend fun setFilterEffect(clipId: String, filterEffect: String)
+
+    @Query("UPDATE timeline_clips SET rotationDegrees = :degrees WHERE clipId = :clipId")
+    suspend fun setRotation(clipId: String, degrees: Int)
+
+    @Query("UPDATE timeline_clips SET textOverlay = :textOverlay WHERE clipId = :clipId")
+    suspend fun setTextOverlay(clipId: String, textOverlay: String)
+
     @Transaction
     suspend fun reflowTrack(projectId: String, trackIndex: Int) {
         withSequentialTimelineOffsets(clipsInTrack(projectId, trackIndex)).forEach { clip ->

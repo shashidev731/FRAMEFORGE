@@ -25,5 +25,9 @@ data class TimelineClipEntity(
     @ColumnInfo(defaultValue = "1.0") val audioVolume: Float = 1f,
     @ColumnInfo(defaultValue = "0") val audioFadeInMs: Long = 0L,
     @ColumnInfo(defaultValue = "0") val audioFadeOutMs: Long = 0L,
+    @ColumnInfo(defaultValue = "1.0") val speed: Float = 1.0f,
+    @ColumnInfo(defaultValue = "'NONE'") val filterEffect: String = "NONE",
+    @ColumnInfo(defaultValue = "0") val rotationDegrees: Int = 0,
+    @ColumnInfo(defaultValue = "''") val textOverlay: String = "",
     val createdAt: Long
 )

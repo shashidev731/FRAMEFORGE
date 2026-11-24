@@ -1,6 +1,8 @@
 package com.frameforge.app.data
+
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+
 @Entity(tableName = "projects")
 data class ProjectEntity(
     @PrimaryKey val id: String,
@@ -8,5 +10,7 @@ data class ProjectEntity(
     val type: String,
     val aspectRatio: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val resolution: String = "1080p",
+    val frameRate: Int = 30
 )

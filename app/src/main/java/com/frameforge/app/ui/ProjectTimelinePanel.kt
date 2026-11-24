@@ -342,11 +342,71 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                                 enabled = timelinePlayheadMs > selectedClip.timelineStartMs &&
                                     timelinePlayheadMs < selectedClip.timelineStartMs + (trimEnd.toLong() - trimStart.toLong())
                             ) { Text("Split at playhead") }
+                            OutlinedButton(
+                                onClick = { scope.launch { repository.remove(selectedClip.clipId); selectedClipId = null } }
+                            ) {
+                                Icon(Icons.Default.Delete, "Delete clip", tint = MaterialTheme.colorScheme.error)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Delete", color = MaterialTheme.colorScheme.error)
+                            }
                         }
                     } else {
                         Text("Duration unavailable. Trim and split are disabled until the media duration can be read.",
                             color = SurfaceWhite.copy(alpha = .75f), style = MaterialTheme.typography.bodySmall)
                     }
+
+                    // Speed controls
+                    Text("Speed • ${selectedClip.speed}x", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speedOption ->
+                            FilterChip(
+                                selected = selectedClip.speed == speedOption,
+                                onClick = { scope.launch { repository.setSpeed(selectedClip.clipId, speedOption) } },
+                                label = { Text("${speedOption}x", style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+
+                    if (selectedClip.mimeType.startsWith("video/") || selectedClip.mimeType.startsWith("image/")) {
+                        // Visual Filters
+                        Text("Visual Filter • ${selectedClip.filterEffect}", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("NONE" to "Normal", "BW" to "B&W", "CONTRAST" to "Vivid", "BRIGHT" to "Bright", "WARM" to "Warm", "COOL" to "Cool", "SEPIA" to "Vintage", "INVERT" to "Invert").forEach { (code, label) ->
+                                FilterChip(
+                                    selected = selectedClip.filterEffect == code,
+                                    onClick = { scope.launch { repository.setFilterEffect(selectedClip.clipId, code) } },
+                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+
+                        // Rotation
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Rotation • ${selectedClip.rotationDegrees}°", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                            OutlinedButton(
+                                onClick = { scope.launch { repository.setRotation(selectedClip.clipId, (selectedClip.rotationDegrees + 90) % 360) } }
+                            ) {
+                                Text("Rotate 90°")
+                            }
+                        }
+
+                        // Text Overlay
+                        var textDraft by remember(selectedClip.clipId, selectedClip.textOverlay) { mutableStateOf(selectedClip.textOverlay) }
+                        OutlinedTextField(
+                            value = textDraft,
+                            onValueChange = { textDraft = it },
+                            label = { Text("Text / Caption Overlay") },
+                            placeholder = { Text("Add text subtitle for this clip…") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (textDraft != selectedClip.textOverlay) {
+                            Button(
+                                onClick = { scope.launch { repository.setTextOverlay(selectedClip.clipId, textDraft) } }
+                            ) { Text("Apply Text Overlay") }
+                        }
+                    }
+
                     Text("Trimming changes only this timeline segment; the source file remains untouched.",
                         color = SurfaceWhite.copy(alpha = .7f), style = MaterialTheme.typography.labelSmall)
                 }

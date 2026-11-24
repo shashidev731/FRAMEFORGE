@@ -99,6 +99,42 @@ class TimelineRepository(
         }
     }
 
+    suspend fun setSpeed(clipId: String, speed: Float) {
+        val clip = dao.find(clipId) ?: return
+        val clampedSpeed = speed.coerceIn(0.25f, 4.0f)
+        if (clip.speed == clampedSpeed) return
+        recordSnapshot(clip.projectId) {
+            dao.setSpeed(clipId, clampedSpeed)
+            dao.reflowTrack(clip.projectId, clip.trackIndex)
+        }
+    }
+
+    suspend fun setFilterEffect(clipId: String, filterEffect: String) {
+        val clip = dao.find(clipId) ?: return
+        if (clip.filterEffect == filterEffect) return
+        recordSnapshot(clip.projectId) {
+            dao.setFilterEffect(clipId, filterEffect)
+        }
+    }
+
+    suspend fun setRotation(clipId: String, degrees: Int) {
+        val clip = dao.find(clipId) ?: return
+        val normalizedDegrees = ((degrees % 360) + 360) % 360
+        if (clip.rotationDegrees == normalizedDegrees) return
+        recordSnapshot(clip.projectId) {
+            dao.setRotation(clipId, normalizedDegrees)
+        }
+    }
+
+    suspend fun setTextOverlay(clipId: String, textOverlay: String) {
+        val clip = dao.find(clipId) ?: return
+        val trimmed = textOverlay.trim()
+        if (clip.textOverlay == trimmed) return
+        recordSnapshot(clip.projectId) {
+            dao.setTextOverlay(clipId, trimmed)
+        }
+    }
+
     suspend fun moveEarlier(clipId: String) = move(clipId, -1)
     suspend fun moveLater(clipId: String) = move(clipId, 1)
 

@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -157,7 +158,22 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
             }
             Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Adjustments", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Filter Presets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(
+                            "Normal" to { exposure = 0f; saturation = 1f; contrast = 1f; warmth = 0f },
+                            "Vivid" to { exposure = 0.2f; saturation = 1.4f; contrast = 1.15f; warmth = 0.1f },
+                            "B&W" to { exposure = 0.1f; saturation = 0f; contrast = 1.25f; warmth = 0f },
+                            "Vintage" to { exposure = 0.1f; saturation = 0.75f; contrast = 0.9f; warmth = 0.4f },
+                            "Cool" to { exposure = 0f; saturation = 1.1f; contrast = 1.05f; warmth = -0.35f },
+                            "Warm" to { exposure = 0.1f; saturation = 1.15f; contrast = 1.05f; warmth = 0.4f },
+                            "Moody" to { exposure = -0.3f; saturation = 0.85f; contrast = 1.35f; warmth = -0.1f }
+                        ).forEach { (name, applyPreset) ->
+                            FilledTonalButton(onClick = applyPreset) { Text(name, style = MaterialTheme.typography.labelSmall) }
+                        }
+                    }
+
+                    Text("Fine Adjustments", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("Exposure  •  ${"%.1f".format(exposure)} EV", fontWeight = FontWeight.Medium)
                     Slider(value = exposure, onValueChange = { exposure = it }, valueRange = -2f..2f)
                     Text("Saturation  •  ${"%.1f".format(saturation)}×", fontWeight = FontWeight.Medium)
@@ -174,8 +190,8 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                         singleLine = true
                     )
                     Text("Crop ratio", fontWeight = FontWeight.Medium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("Original", "1:1", "4:5", "9:16").forEach { ratio ->
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("Original", "1:1", "4:5", "9:16", "16:9", "3:2").forEach { ratio ->
                             FilterChip(selected = cropRatio == ratio, onClick = { cropRatio = ratio }, label = { Text(ratio) })
                         }
                     }
@@ -267,6 +283,8 @@ private fun renderPhotoEdit(
         "1:1" -> 1f
         "4:5" -> 4f / 5f
         "9:16" -> 9f / 16f
+        "16:9" -> 16f / 9f
+        "3:2" -> 3f / 2f
         else -> source.width.toFloat() / source.height.toFloat()
     }
     val crop = calculatePhotoCropRect(

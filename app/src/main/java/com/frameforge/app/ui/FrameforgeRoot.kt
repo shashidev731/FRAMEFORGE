@@ -101,17 +101,32 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     ) { inset ->
         if (selectedProject != null) {
             val project = projects.firstOrNull { it.id == selectedProject?.id } ?: selectedProject!!
-            ProjectWorkspaceScreen(project, Modifier.padding(inset), editHistoryRepository, media, timelineRepository, onAspectRatioChange = { newRatio ->
-                scope.launch { repository.updateAspectRatio(project.id, newRatio) }
-                selectedProject = project.copy(aspectRatio = newRatio, updatedAt = System.currentTimeMillis())
-            }, onOpenStudio = { destination -> studioProjectId = project.id; selectedProject = null; tab = destination })
+            ProjectWorkspaceScreen(
+                project = project,
+                modifier = Modifier.padding(inset),
+                editHistoryRepository = editHistoryRepository,
+                media = media,
+                timelineRepository = timelineRepository,
+                onAspectRatioChange = { newRatio ->
+                    scope.launch { repository.updateAspectRatio(project.id, newRatio) }
+                    selectedProject = project.copy(aspectRatio = newRatio, updatedAt = System.currentTimeMillis())
+                },
+                onResolutionAndFpsChange = { res, fps ->
+                    scope.launch { repository.updateResolutionAndFps(project.id, res, fps) }
+                    selectedProject = project.copy(resolution = res, frameRate = fps, updatedAt = System.currentTimeMillis())
+                },
+                onOpenStudio = { destination ->
+                    studioProjectId = project.id
+                    selectedProject = null
+                    tab = destination
+                }
+            )
         } else when (tab) {
             Tab.Home -> HomeScreen(projects, Modifier.padding(inset), { createDialog = true }, { studioProjectId = null; tab = Tab.Video }, { studioProjectId = null; tab = Tab.Photo }, { studioProjectId = null; tab = Tab.AI }, { selectedProject = it })
             Tab.Projects -> ProjectsScreen(projects, repository, Modifier.padding(inset), { createDialog = true }, { selectedProject = it })
             Tab.Video -> VideoStudioScreen(Modifier.padding(inset), studioProjectId, editHistoryRepository)
             Tab.Photo -> PhotoStudioScreen(Modifier.padding(inset), studioProjectId, editHistoryRepository)
-            Tab.AI -> StudioScreen("AI Studio", "AI edits always require your approval", Icons.Default.AutoAwesome, Modifier.padding(inset),
-                "AI tools are not active yet. No media is uploaded or modified in this foundation build.", null)
+            Tab.AI -> AiStudioScreen(Modifier.padding(inset))
             Tab.Library -> MediaLibraryScreen(media, Modifier.padding(inset), { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) }, { uri -> scope.launch { mediaRepository.delete(uri) } })
             Tab.Settings -> SettingsScreen(
                 workspaceMode = workspaceMode,
@@ -289,7 +304,7 @@ private fun ProjectCard(project: ProjectEntity, onClick: () -> Unit, onDelete: (
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(project.name, fontWeight = FontWeight.SemiBold)
-                Text("${project.type} • ${project.aspectRatio}", color = Muted, style = MaterialTheme.typography.bodySmall)
+                Text("${project.type} • ${project.aspectRatio} • ${project.resolution}", color = Muted, style = MaterialTheme.typography.bodySmall)
             }
             if (onRename != null) IconButton(onClick = onRename) { Icon(Icons.Default.Edit, "Rename project", tint = Muted) }
             if (onDuplicate != null) IconButton(onClick = onDuplicate) { Icon(Icons.Default.ContentCopy, "Duplicate project", tint = Muted) }
@@ -352,9 +367,12 @@ private fun ProjectWorkspaceScreen(
     media: List<MediaEntity>,
     timelineRepository: TimelineRepository,
     onAspectRatioChange: (String) -> Unit,
+    onResolutionAndFpsChange: (String, Int) -> Unit = { _, _ -> },
     onOpenStudio: (Tab) -> Unit
 ) {
     var ratioMenu by remember { mutableStateOf(false) }
+    var resMenu by remember { mutableStateOf(false) }
+    var fpsMenu by remember { mutableStateOf(false) }
     var showCustomRatioDialog by remember { mutableStateOf(false) }
     var customRatioValue by remember { mutableStateOf("3:2") }
     Column(modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -362,32 +380,72 @@ private fun ProjectWorkspaceScreen(
             Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("PROJECT WORKSPACE", color = AccentSoft, style = MaterialTheme.typography.labelMedium)
                 Text(project.name, color = SurfaceWhite, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("${project.type} project • Updated ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(project.updatedAt))}",
+                Text("${project.type} project • ${project.resolution} @ ${project.frameRate}fps • Updated ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(project.updatedAt))}",
                     color = SurfaceWhite.copy(alpha = .72f), style = MaterialTheme.typography.bodySmall)
             }
         }
-        Text("Canvas settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Canvas & Render Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Aspect ratio", fontWeight = FontWeight.SemiBold)
-                Box {
-                    OutlinedButton(onClick = { ratioMenu = true }) {
-                        Text(project.aspectRatio)
-                        Icon(Icons.Default.ArrowDropDown, null)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Aspect ratio", fontWeight = FontWeight.SemiBold)
+                        Box {
+                            OutlinedButton(onClick = { ratioMenu = true }) {
+                                Text(project.aspectRatio)
+                                Icon(Icons.Default.ArrowDropDown, null)
+                            }
+                            DropdownMenu(expanded = ratioMenu, onDismissRequest = { ratioMenu = false }) {
+                                listOf("9:16", "16:9", "1:1", "4:5", "Custom").forEach { option ->
+                                    DropdownMenuItem(text = { Text(option) }, onClick = {
+                                        ratioMenu = false
+                                        if (option == "Custom") {
+                                            customRatioValue = project.aspectRatio.takeIf { isValidAspectRatio(it) } ?: "3:2"
+                                            showCustomRatioDialog = true
+                                        } else onAspectRatioChange(option)
+                                    })
+                                }
+                            }
+                        }
                     }
-                    DropdownMenu(expanded = ratioMenu, onDismissRequest = { ratioMenu = false }) {
-                        listOf("9:16", "16:9", "1:1", "4:5", "Custom").forEach { option ->
-                            DropdownMenuItem(text = { Text(option) }, onClick = {
-                                ratioMenu = false
-                                if (option == "Custom") {
-                                    customRatioValue = project.aspectRatio.takeIf { isValidAspectRatio(it) } ?: "3:2"
-                                    showCustomRatioDialog = true
-                                } else onAspectRatioChange(option)
-                            })
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Resolution", fontWeight = FontWeight.SemiBold)
+                        Box {
+                            OutlinedButton(onClick = { resMenu = true }) {
+                                Text(project.resolution)
+                                Icon(Icons.Default.ArrowDropDown, null)
+                            }
+                            DropdownMenu(expanded = resMenu, onDismissRequest = { resMenu = false }) {
+                                listOf("720p", "1080p", "4K").forEach { r ->
+                                    DropdownMenuItem(text = { Text(r) }, onClick = {
+                                        resMenu = false
+                                        onResolutionAndFpsChange(r, project.frameRate)
+                                    })
+                                }
+                            }
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Frame rate", fontWeight = FontWeight.SemiBold)
+                        Box {
+                            OutlinedButton(onClick = { fpsMenu = true }) {
+                                Text("${project.frameRate} fps")
+                                Icon(Icons.Default.ArrowDropDown, null)
+                            }
+                            DropdownMenu(expanded = fpsMenu, onDismissRequest = { fpsMenu = false }) {
+                                listOf(24, 30, 60).forEach { f ->
+                                    DropdownMenuItem(text = { Text("$f fps") }, onClick = {
+                                        fpsMenu = false
+                                        onResolutionAndFpsChange(project.resolution, f)
+                                    })
+                                }
+                            }
                         }
                     }
                 }
-                Text("Changing this setting updates the project canvas preference. It does not crop or alter your original media.",
+                Text("Changes project canvas and export rendering parameters. Original imported media is never altered.",
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -406,8 +464,8 @@ private fun ProjectWorkspaceScreen(
         }
         Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Editing engine status", fontWeight = FontWeight.SemiBold)
-                Text("Basic photo adjustments and MP4 trim export are active in their studios. A unified multitrack timeline, advanced effects and shared render engine are still in development.",
+                Text("FRAMEFORGE Editing Engine Status", fontWeight = FontWeight.SemiBold)
+                Text("Active: Multitrack timeline composition, AndroidX Media3 video playback, simultaneous audio mixing, per-clip volume & fades, video speed adjustment, visual filters (B&W, Invert, Vivid, Warm, Cool, Sepia), non-destructive Photo Studio, and direct MP4 export.",
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -613,31 +671,87 @@ private fun SettingsScreen(
     onWorkspaceModeChange: (String) -> Unit,
     modifier: Modifier
 ) {
-    Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val context = LocalContext.current
+    val preferences = remember(context) { contextPreferences(context) }
+    var darkTheme by remember { mutableStateOf(preferences.getBoolean("dark_theme", true)) }
+    var cacheStatus by remember { mutableStateOf("Calculated on demand") }
+
+    Column(modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+
+        // Theme Setting
+        Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Appearance & Theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("FRAMEFORGE features a premium dark theme by default, optimized for color accuracy during video and photo editing.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(if (darkTheme) "Dark theme (Active)" else "Light theme (Active)", fontWeight = FontWeight.Medium)
+                    Switch(
+                        checked = darkTheme,
+                        onCheckedChange = { isDark ->
+                            darkTheme = isDark
+                            preferences.edit().putBoolean("dark_theme", isDark).apply()
+                        }
+                    )
+                }
+            }
+        }
+
+        // Workspace Mode
         Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Workspace", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("Choose the editing workspace that suits your workflow.", color = Muted)
+                Text("Workspace Mode", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Choose the editing workspace layout that suits your workflow.", color = Muted)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = workspaceMode == "Simple", onClick = { onWorkspaceModeChange("Simple") }, label = { Text("Simple") })
                     FilterChip(selected = workspaceMode == "Professional", onClick = { onWorkspaceModeChange("Professional") }, label = { Text("Professional") })
                 }
                 Text(
-                    if (workspaceMode == "Simple") "Essential controls are prioritized. Advanced controls can be added as needed."
-                    else "A detailed workspace for advanced editing workflows.",
+                    if (workspaceMode == "Simple") "Essential controls are prioritized. Great for fast social clips and photo adjustments."
+                    else "Full multi-track timeline, audio waveform mixers, visual effects, and custom resolution export controls.",
                     color = Muted,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
         }
+
+        // Storage & Cache Management
         Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Storage & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("Projects and media references are stored locally. Imported originals are not modified or deleted when you remove a library reference.", color = Muted)
-                Text("Cloud sync and AI processing are not enabled in this foundation build.", color = Muted)
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Storage & Cache Management", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Exported videos and photos are saved in your device's Movies and Pictures folders. Temporary cache can be safely cleared at any time.", color = Muted, style = MaterialTheme.typography.bodySmall)
+
+                Button(
+                    onClick = {
+                        val cacheDir = context.cacheDir
+                        val bytesFreed = cacheDir.listFiles()?.sumOf { file ->
+                            val len = file.length()
+                            file.deleteRecursively()
+                            len
+                        } ?: 0L
+                        cacheStatus = "Cache cleared: ${(bytesFreed / 1024).coerceAtLeast(0)} KB freed"
+                    }
+                ) {
+                    Icon(Icons.Default.CleaningServices, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Clear Temporary Cache")
+                }
+                Text("Status: $cacheStatus", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
         }
-        Text("FRAMEFORGE • Foundation build", color = Muted, style = MaterialTheme.typography.labelSmall)
+
+        // Privacy & Security
+        Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Privacy & Security", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("• All media stays securely on your device.\n• Original files are never modified or overwritten.\n• AI features require explicit consent and your own configured API keys.\n• Zero background tracking or unauthorized cloud uploads.", color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        Text("FRAMEFORGE v0.1.0 • Professional Video & Photo Studio", color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }

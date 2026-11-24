@@ -24,4 +24,7 @@ class ProjectRepository(private val dao: ProjectDao, private val editHistoryDao:
     suspend fun updateAspectRatio(id: String, aspectRatio: String) {
         if (aspectRatio.isNotBlank()) dao.updateAspectRatio(id, aspectRatio, System.currentTimeMillis())
     }
+    suspend fun updateResolutionAndFps(id: String, resolution: String, frameRate: Int) {
+        dao.updateResolutionAndFps(id, resolution, frameRate, System.currentTimeMillis())
+    }
 }

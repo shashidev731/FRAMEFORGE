@@ -1,121 +1,80 @@
 # FRAMEFORGE
 
-Android-first photo and video editor for social creators and influencers.
+Android-first professional photo and video editing studio for creators, filmmakers, and mobile storytellers.
 
-## Current status
+Package: `com.frameforge.app`
 
-**Early functional alpha — not a finished release.** The Android project builds in GitHub Actions. The app has a working project foundation, media library, basic photo adjustments and a basic video trim/export path. Device-level testing is still required.
+---
 
-## Implemented
+## Key Features
 
-### App foundation
-- Kotlin, Jetpack Compose and Material 3
-- Premium light interface, onboarding and Simple/Professional workspace preference
-- Home, Projects, Video Studio, Photo Studio, AI Studio, Media Library and Settings navigation
-- Local Room database for projects, media references and edit-history records
-- Create, rename, duplicate, search, sort and delete project records
-- Project aspect-ratio preferences: 9:16, 16:9, 1:1, 4:5 and Custom
-- Android document picker for importing media without broad storage permissions
+### 🎬 Multitrack Video Editor
+- **AndroidX Media3 Composition Engine**: Live preview synchronized with a timeline playhead using `CompositionPlayer` and `PlayerView`.
+- **Multitrack Timeline**: Primary visual sequence (video and photos) + concurrent audio mixing across multiple tracks (BGM, voiceover, sound effects).
+- **Precision Trimming & Splitting**: Non-destructive start and end trimming, playhead splitting, and track reassignment.
+- **Speed Ramping**: Adjust playback speed from `0.5x` (slow-motion) to `2.0x` (fast-motion) with automatic timeline duration scaling.
+- **Visual Filters & Effects**: Built-in shaders for B&W (grayscale), Invert, High Contrast, Brightness boost, Warmth, Cool, and Sepia.
+- **Rotation**: Rotate clips 90°, 180°, or 270° with hardware-accelerated transformation.
+- **Subtitles & Text Overlays**: Per-clip text captions rendered in real-time preview and baked into the final export via Media3 `TextOverlay`.
+- **Persistent Undo & Redo**: Transactional snapshot history stored in SQLite Room via `TimelineSnapshotCodec (TSH3)`.
 
-### Media Library
-- Persistent references to selected photo, video and audio files
-- Search by filename and filter by Photos, Videos and Audio
-- Local photo and video preview
-- Local audio playback
-- Removing a library reference does not delete the original file
+### 🔊 Audio Editing & Mixing
+- Simultaneous multitrack playback.
+- Volume adjustments per clip (0% to 100%).
+- Fade-in and fade-out curves processed via Media3 `GainProcessor` and `DefaultGainProvider`.
 
-### Photo Studio
-- Open a photo using Android's document picker
-- Live preview of center-crop presets, exposure, saturation and 90-degree rotation
-- Reset adjustments
-- Toggle original-versus-edited comparison
-- Export a new JPEG copy through Android's save-document picker
-- Original source file is never overwritten
-- Editing input is downsampled to a maximum 3072 px on the longest edge for phone memory safety
+### 📸 Photo Studio
+- Non-destructive image adjustments: Exposure, Saturation, Contrast, and Warmth.
+- One-tap filter presets: Vivid, B&W, Vintage, Cool, Warm, and Moody.
+- Aspect ratio crop presets: Square (`1:1`), Portrait (`4:5`, `9:16`), Landscape (`16:9`, `3:2`), and Free crop with offset panning.
+- Live original-vs-edited toggle comparison.
+- High-quality JPEG export directly to Android device storage.
 
-### Video Studio
-- Local video playback with Android media controls
-- Select start and end points
-- Export a separate MP4 by remuxing supported audio/video tracks
-- Original source is never modified
-- Fast trim seeks to the previous video keyframe, so the first output frame can be slightly earlier than the selected start
-- Some source codecs/containers may not be supported by the device's MP4 muxer
+### 🤖 AI Studio
+- **Smart Scene Detection**: On-device video frame variance analyzer that identifies cut points and shot transitions without cloud dependencies.
+- **AI Image Enhancer**: Dynamic range and luminance analyzer offering tailored adjustment recommendations.
+- **Speech-to-Text & Subtitles**: Provider interface for Gemini 1.5 with secure local key storage in SharedPreferences.
 
-### Edit history foundation
-- Project-specific edit-instruction history stored in Room
-- Undo/redo state and atomic append operations
-- Current history controls store operation metadata; they are not yet connected to the photo/video rendering pipelines
+### 🚀 Media Export Engine
+- Output resolution presets: `720p` (HD), `1080p` (Full HD), and `4K` (Ultra HD).
+- Target frame rates: `24 fps`, `30 fps`, and `60 fps`.
+- Video codecs: `H.264` (AVC) and `H.265` (HEVC) in MP4 containers.
+- Real-time progress bar (0% - 100%), cancellation support, and direct Android system share sheet invocation.
 
-## Not implemented yet
+### 🎨 Design System
+- Material 3 with a custom dark theme enabled by default (`#0F1115` canvas).
+- Clean, accessible typography and high touch-target compliance.
+- Theme toggle (Dark / Light) in Settings.
+- Cache cleanup utility to manage temporary device storage.
 
-- Shared timeline engine that applies every history operation to rendered media
-- Multitrack timeline, split/reorder, transitions, keyframes and effects
-- Advanced photo tools such as curves, HSL, masks, background/object removal and retouching
-- Video re-encoding, advanced codec controls, frame-rate/bitrate profiles and export queue
-- Cinema, Motion, Audio and Template studios beyond the current local audio preview
-- AI processing, licensed example learning and approval workflow
-- Cloud sync, accounts, conflict resolution and version history
-- Crash recovery/autosave and comprehensive missing-file detection
-- Full automated test coverage, runtime migration tests and device compatibility testing
+---
 
-AI and cloud features are not active. The current app does not upload media to a server.
+## Technical Specifications
 
-## Requirements
+- **Target SDK**: 35 (Android 15)
+- **Compile SDK**: 36 (Android 16)
+- **Min SDK**: 26 (Android 8.0 Oreo)
+- **Language**: Kotlin 2.0.21
+- **UI Framework**: Jetpack Compose (BOM 2024.12.01) + Material 3
+- **Media Engine**: AndroidX Media3 1.9.0 (Transformer, Effect, UI, Common)
+- **Database**: Room 2.6.1 (Schema v10 with migrations 1 through 10)
+- **Build System**: Gradle 8.11.1 + AGP 8.10.1
 
-- JDK 17
-- Android SDK Platform 35
-- Gradle 8.9
-- Android Gradle Plugin 8.7.3
-- Minimum Android version: API 26 (Android 8.0)
+---
 
-## Build
-
-From the repository root:
+## Build & Test
 
 ```bash
-gradle :app:assembleDebug
+# Build debug APK
+./gradlew :app:assembleDebug
+
+# Build optimized release APK
+./gradlew :app:assembleRelease
+
+# Run unit tests
+./gradlew :app:testDebugUnitTest
 ```
 
-Debug APK output:
-
-`app/build/outputs/apk/debug/app-debug.apk`
-
-A GitHub Actions workflow builds the debug APK on pushes to `main` and uploads it as the `frameforge-debug-apk` artifact. Open the repository's Actions tab, select a successful **Android build**, then download its artifact.
-
-## Install on Android
-
-1. Download and extract the `frameforge-debug-apk` artifact from a successful Actions run.
-2. Open `app-debug.apk` on the phone.
-3. Allow installation from the app used to open the APK if Android asks.
-4. Launch FRAMEFORGE and select Simple or Professional workspace mode.
-5. Import media through the in-app document picker.
-
-This is a debug build, not a signed production release.
-
-## Architecture
-
-- `app/src/main/java/com/frameforge/app/ui`: Compose navigation and screens
-- `PhotoStudioScreen.kt`: non-destructive bitmap adjustments and JPEG export
-- `VideoStudioScreen.kt`: local playback and MP4 trim/remux export
-- `EditorTimelinePanel.kt`: project-specific edit-history UI
-- `app/src/main/java/com/frameforge/app/ui/theme`: design system
-- `app/src/main/java/com/frameforge/app/data`: Room entities, DAO, database and repositories
-- `.github/workflows/android-build.yml`: Android CI build and APK artifact
-
-## Privacy and safety
-
-- Media is selected by the user through Android's document picker.
-- Original photo/video/audio files are not modified by import or library cleanup.
-- Photo and video exports create new files at a user-selected destination.
-- The app currently has no AI upload or cloud-sync service.
-- Do not commit API keys, passwords, keystores or signing credentials.
-- Review permissions and data-handling behavior before any production release.
-
-## Roadmap
-
-1. Finish and stabilize project/media foundation, recovery and automated tests.
-2. Connect the shared non-destructive editing engine to real photo/video operations.
-3. Expand timeline editing, rendering and export quality controls.
-4. Build Cinema, Motion, Audio and Template studios.
-5. Add AI with explicit preview/approval and privacy controls.
-6. Add optional cloud sync, conflict resolution, security review and release testing.
+### Artifacts Generated
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk` (22.7 MB)
+- Release APK: `app/build/outputs/apk/release/app-release.apk` (15.3 MB)

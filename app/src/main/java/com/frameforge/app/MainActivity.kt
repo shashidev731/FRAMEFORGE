@@ -42,31 +42,9 @@ private val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
-private val MIGRATION_8_9 = object : Migration(8, 9) {
-    override fun migrate(database: SupportSQLiteDatabase) {
-        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN audioFadeInMs INTEGER NOT NULL DEFAULT 0")
-        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN audioFadeOutMs INTEGER NOT NULL DEFAULT 0")
-    }
-}
-
-
-private val MIGRATION_7_8 = object : Migration(7, 8) {
-    override fun migrate(database: SupportSQLiteDatabase) {
-        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN audioVolume REAL NOT NULL DEFAULT 1.0")
-    }
-}
-
-
-private val MIGRATION_6_7 = object : Migration(6, 7) {
-    override fun migrate(database: SupportSQLiteDatabase) {
-        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN gapBeforeMs INTEGER NOT NULL DEFAULT 0")
-    }
-}
-
 private val MIGRATION_5_6 = object : Migration(5, 6) {
     override fun migrate(database: SupportSQLiteDatabase) {
         database.execSQL("ALTER TABLE timeline_clips ADD COLUMN timelineStartMs INTEGER NOT NULL DEFAULT 0")
-        // Avoid UPDATE target-table aliases for compatibility with older Android SQLite versions.
         database.execSQL("""
             UPDATE timeline_clips
             SET timelineStartMs = COALESCE((
@@ -80,15 +58,52 @@ private val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+private val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN gapBeforeMs INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+private val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN audioVolume REAL NOT NULL DEFAULT 1.0")
+    }
+}
+
+private val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN audioFadeInMs INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN audioFadeOutMs INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+private val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN speed REAL NOT NULL DEFAULT 1.0")
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN filterEffect TEXT NOT NULL DEFAULT 'NONE'")
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN rotationDegrees INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("ALTER TABLE timeline_clips ADD COLUMN textOverlay TEXT NOT NULL DEFAULT ''")
+        database.execSQL("ALTER TABLE projects ADD COLUMN resolution TEXT NOT NULL DEFAULT '1080p'")
+        database.execSQL("ALTER TABLE projects ADD COLUMN frameRate INTEGER NOT NULL DEFAULT 30")
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = Room.databaseBuilder(applicationContext, FrameforgeDatabase::class.java, "frameforge.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
             .build()
+        val preferences = getSharedPreferences("frameforge_preferences", MODE_PRIVATE)
+        val darkTheme = preferences.getBoolean("dark_theme", true)
         setContent {
-            FrameforgeTheme {
-                FrameforgeRoot(ProjectRepository(db.projectDao(), db.editOperationDao(), db.timelineClipDao()), MediaRepository(db.mediaDao()), EditHistoryRepository(db.editOperationDao()), TimelineRepository(db.timelineClipDao(), db.editOperationDao(), db))
+            FrameforgeTheme(darkTheme = darkTheme) {
+                FrameforgeRoot(
+                    ProjectRepository(db.projectDao(), db.editOperationDao(), db.timelineClipDao()),
+                    MediaRepository(db.mediaDao()),
+                    EditHistoryRepository(db.editOperationDao()),
+                    TimelineRepository(db.timelineClipDao(), db.editOperationDao(), db)
+                )
             }
         }
     }
