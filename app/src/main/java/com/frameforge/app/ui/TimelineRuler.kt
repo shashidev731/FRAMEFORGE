@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.frameforge.app.data.TimelineClipEntity
+import com.frameforge.app.data.saturatingTimelineEndMs
+import com.frameforge.app.data.effectiveClipDurationMs
 import com.frameforge.app.ui.theme.Accent
 import com.frameforge.app.ui.theme.Muted
 
@@ -22,8 +24,7 @@ import com.frameforge.app.ui.theme.Muted
 @Composable
 fun TimelineRuler(clips: List<TimelineClipEntity>) {
     val maxEndMs = clips.maxOfOrNull { clip ->
-        val end = clip.trimEndMs ?: clip.durationMs
-        clip.timelineStartMs + (end - clip.trimStartMs).coerceAtLeast(0L)
+        saturatingTimelineEndMs(clip.timelineStartMs, effectiveClipDurationMs(clip))
     } ?: 0L
     val totalSeconds = ((maxEndMs + 999L) / 1000L).toInt().coerceIn(10, 600)
     val scroll = rememberScrollState()

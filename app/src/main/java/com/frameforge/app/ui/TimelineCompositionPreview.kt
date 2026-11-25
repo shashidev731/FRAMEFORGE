@@ -416,17 +416,17 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): MediaComp
         .filter { it.trackIndex >= 1 && it.mimeType.startsWith("audio/") }
         .groupBy { it.trackIndex }
 
-    if (visualClips.none { visibleClipDurationMs(it) > 0L }) return null
+    if (visualClips.none { effectiveClipDurationMs(it) > 0L }) return null
 
     val visualSequence = EditedMediaItemSequence.Builder(setOf(VIDEO_TRACK_TYPE))
     var visualCursorMs = 0L
     visualClips.forEach { clip ->
-        val durationMs = visibleClipDurationMs(clip)
+        val durationMs = effectiveClipDurationMs(clip)
         if (durationMs > 0L) {
             val gapMs = (clip.timelineStartMs - visualCursorMs).coerceAtLeast(0L)
             if (gapMs > 0L) visualSequence.addGap(gapMs * 1_000L)
             visualSequence.addItem(buildEditedTimelineItem(clip, durationMs))
-            visualCursorMs = maxOf(visualCursorMs, clip.timelineStartMs + durationMs)
+            visualCursorMs = maxOf(visualCursorMs, saturatingTimelineEndMs(clip.timelineStartMs, durationMs))
         }
     }
 
@@ -445,7 +445,7 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): MediaComp
                         val gapMs = (clip.timelineStartMs - audioCursorMs).coerceAtLeast(0L)
                         if (gapMs > 0L) audioSequence.addGap(gapMs * 1_000L)
                         audioSequence.addItem(buildEditedTimelineItem(clip, durationMs))
-                        audioCursorMs = maxOf(audioCursorMs, clip.timelineStartMs + durationMs)
+                        audioCursorMs = maxOf(audioCursorMs, saturatingTimelineEndMs(clip.timelineStartMs, durationMs))
                     }
                 }
                 add(audioSequence.build())
@@ -462,7 +462,8 @@ private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long):
         .setUri(Uri.parse(clip.mediaUri))
         .setMimeType(clip.mimeType)
 
-    if (clip.mimeType.startsWith("image/")) {
+    val isImage = clip.mimeType.startsWith("image/")
+    if (isImage) {
         mediaItemBuilder.setImageDurationMs(durationMs)
     } else {
         val startMs = normalizedClipTrimStartMs(clip)
@@ -476,7 +477,11 @@ private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long):
     }
 
     val itemBuilder = EditedMediaItem.Builder(mediaItemBuilder.build())
-        .setDurationUs(durationMs * 1_000L)
+    if (!isImage && clip.durationMs > 0L) {
+        // Media3 expects the full source duration here, before clipping and speed effects.
+        val sourceDurationUs = clip.durationMs.coerceAtMost(Long.MAX_VALUE / 1_000L) * 1_000L
+        itemBuilder.setDurationUs(sourceDurationUs)
+    }
 
     val audioEffects = mutableListOf<AudioProcessor>()
     val videoEffects = mutableListOf<Effect>()
@@ -517,8 +522,8 @@ private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long):
             "SEPIA" -> videoEffects.add(RgbAdjustment.Builder().setRedScale(1.2f).setGreenScale(1.0f).setBlueScale(0.8f).build())
         }
 
-        if (clip.speed != 1.0f && clip.speed > 0f) {
-            videoEffects.add(SpeedChangeEffect(clip.speed))
+        if (clip.mimeType.startsWith("video/") && normalizedClipSpeed(clip.speed) != 1.0f) {
+            videoEffects.add(SpeedChangeEffect(normalizedClipSpeed(clip.speed)))
         }
 
         if (clip.textOverlay.isNotBlank()) {

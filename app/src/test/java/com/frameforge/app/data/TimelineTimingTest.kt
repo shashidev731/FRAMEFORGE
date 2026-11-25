@@ -10,7 +10,8 @@ class TimelineTimingTest {
         durationMs: Long,
         trimStartMs: Long = 0L,
         trimEndMs: Long? = null,
-        gapBeforeMs: Long = 0L
+        gapBeforeMs: Long = 0L,
+        speed: Float = 1.0f
     ) = TimelineClipEntity(
         clipId = id,
         projectId = "project",
@@ -23,6 +24,7 @@ class TimelineTimingTest {
         trimEndMs = trimEndMs,
         durationMs = durationMs,
         gapBeforeMs = gapBeforeMs,
+        speed = speed,
         createdAt = 1L
     )
 
@@ -225,5 +227,44 @@ class TimelineTimingTest {
 
         assertEquals(listOf(300L, 1000L), result.map { it.timelineStartMs })
         assertEquals(0L, visibleClipDurationMs(result.first()))
+    }
+
+    @Test
+    fun speedChangesEffectiveDurationAndFollowingClipOffset() {
+        val clips = listOf(
+            clip("slow", 0, 4000L, speed = 0.5f),
+            clip("fast", 1, 4000L, speed = 2.0f)
+        )
+
+        val result = withSequentialTimelineOffsets(clips)
+
+        assertEquals(8000L, effectiveClipDurationMs(result[0]))
+        assertEquals(8000L, result[1].timelineStartMs)
+        assertEquals(2000L, effectiveClipDurationMs(result[1]))
+    }
+
+    @Test
+    fun fractionalSpeedRoundsTimelineDurationUpToAvoidOverlap() {
+        val media = clip("fractional", 0, 1000L, speed = 0.75f)
+
+        assertEquals(1334L, effectiveClipDurationMs(media))
+    }
+
+    @Test
+    fun splitPlayheadMapsBackToSourceTimeAtPlaybackSpeed() {
+        val media = clip("slow", 0, 10000L, trimStartMs = 2000L, trimEndMs = 8000L, speed = 0.5f)
+            .copy(timelineStartMs = 1000L)
+
+        assertEquals(3500L, sourceTimeAtTimelinePositionMs(media, 4000L))
+        assertEquals(true, isTimelinePositionInsideClip(media, 4000L))
+        assertEquals(false, isTimelinePositionInsideClip(media, 7000L))
+    }
+
+    @Test
+    fun invalidPersistedSpeedFallsBackToNormalPlayback() {
+        val media = clip("invalid-speed", 0, 1200L, speed = Float.NaN)
+
+        assertEquals(1200L, effectiveClipDurationMs(media))
+        assertEquals(1.0f, normalizedClipSpeed(media.speed))
     }
 }

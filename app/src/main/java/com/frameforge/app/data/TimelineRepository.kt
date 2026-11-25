@@ -101,7 +101,8 @@ class TimelineRepository(
 
     suspend fun setSpeed(clipId: String, speed: Float) {
         val clip = dao.find(clipId) ?: return
-        val clampedSpeed = speed.coerceIn(0.25f, 4.0f)
+        if (!clip.mimeType.startsWith("video/") && !clip.mimeType.startsWith("image/")) return
+        val clampedSpeed = normalizedClipSpeed(speed)
         if (clip.speed == clampedSpeed) return
         recordSnapshot(clip.projectId) {
             dao.setSpeed(clipId, clampedSpeed)

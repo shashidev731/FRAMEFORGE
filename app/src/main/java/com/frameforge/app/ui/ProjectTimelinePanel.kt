@@ -41,6 +41,9 @@ import com.frameforge.app.data.TimelineRepository
 import com.frameforge.app.data.normalizedClipTrimStartMs
 import com.frameforge.app.data.normalizedClipTrimEndMs
 import com.frameforge.app.data.normalizedClipAudioVolume
+import com.frameforge.app.data.effectiveClipDurationMs
+import com.frameforge.app.data.isTimelinePositionInsideClip
+import com.frameforge.app.data.sourceTimeAtTimelinePositionMs
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -336,11 +339,10 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             ) { Text("Duplicate") }
                             OutlinedButton(
                                 onClick = {
-                                    val sourceSplitMs = trimStart.toLong() + (timelinePlayheadMs - selectedClip.timelineStartMs)
+                                    val sourceSplitMs = sourceTimeAtTimelinePositionMs(selectedClip, timelinePlayheadMs)
                                     scope.launch { repository.splitAt(selectedClip.clipId, sourceSplitMs) }
                                 },
-                                enabled = timelinePlayheadMs > selectedClip.timelineStartMs &&
-                                    timelinePlayheadMs < selectedClip.timelineStartMs + (trimEnd.toLong() - trimStart.toLong())
+                                enabled = isTimelinePositionInsideClip(selectedClip, timelinePlayheadMs)
                             ) { Text("Split at playhead") }
                             OutlinedButton(
                                 onClick = { scope.launch { repository.remove(selectedClip.clipId); selectedClipId = null } }
@@ -355,15 +357,17 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                             color = SurfaceWhite.copy(alpha = .75f), style = MaterialTheme.typography.bodySmall)
                     }
 
-                    // Speed controls
-                    Text("Speed • ${selectedClip.speed}x", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speedOption ->
-                            FilterChip(
-                                selected = selectedClip.speed == speedOption,
-                                onClick = { scope.launch { repository.setSpeed(selectedClip.clipId, speedOption) } },
-                                label = { Text("${speedOption}x", style = MaterialTheme.typography.labelSmall) }
-                            )
+                    // Speed controls apply to visual media; audio speed is intentionally not exposed.
+                    if (selectedClip.mimeType.startsWith("video/") || selectedClip.mimeType.startsWith("image/")) {
+                        Text("Speed • ${selectedClip.speed}x", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speedOption ->
+                                FilterChip(
+                                    selected = selectedClip.speed == speedOption,
+                                    onClick = { scope.launch { repository.setSpeed(selectedClip.clipId, speedOption) } },
+                                    label = { Text("${speedOption}x", style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
                         }
                     }
 
@@ -451,7 +455,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             }
         }
         Text(
-            "Clips are saved per project. Preview and MP4 export support the main visual sequence plus one separate audio sequence, including trims and gaps. Overlapping clips, extra overlay tracks, transitions, and multiple simultaneous audio tracks are not supported yet.",
+            "Clips are saved per project. Preview and MP4 export support the primary visual sequence and multiple concurrent audio tracks, including trims, gaps, and visual speed changes. Separate visual overlay tracks and transitions are not available yet.",
             color = Muted, style = MaterialTheme.typography.bodySmall
         )
     }
@@ -599,7 +603,7 @@ private fun TimelineClipStrip(
                                 Text("gap", color = Muted, style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                        val lengthMs = (normalizedClipTrimEndMs(clip) - normalizedClipTrimStartMs(clip)).coerceAtLeast(0L)
+                        val lengthMs = effectiveClipDurationMs(clip)
                         val blockWidth = (lengthMs / 1000f * zoomDpPerSecond).coerceIn(36f, 900f)
                         Surface(
                             modifier = Modifier.width(blockWidth.dp).height(38.dp).clickable { onSelect(clip.clipId) },
