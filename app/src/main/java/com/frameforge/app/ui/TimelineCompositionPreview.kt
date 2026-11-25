@@ -1,8 +1,3 @@
-@file:OptIn(
-    androidx.media3.common.util.UnstableApi::class,
-    androidx.media3.common.util.ExperimentalApi::class
-)
-
 package com.frameforge.app.ui
 
 import android.content.Intent
@@ -29,6 +24,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.DefaultGainProvider
 import androidx.media3.common.audio.GainProcessor
+import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Brightness
 import androidx.media3.effect.Contrast
@@ -63,7 +59,8 @@ data class ExportConfiguration(
     val quality: String = "Standard"
 )
 
-@OptIn(UnstableApi::class)
+@UnstableApi
+@ExperimentalApi
 @Composable
 fun TimelineCompositionPreview(
     clips: List<TimelineClipEntity>,
@@ -409,7 +406,8 @@ fun TimelineCompositionPreview(
 private const val AUDIO_TRACK_TYPE = 1
 private const val VIDEO_TRACK_TYPE = 2
 
-@OptIn(UnstableApi::class)
+@UnstableApi
+@ExperimentalApi
 private fun buildTimelineComposition(clips: List<TimelineClipEntity>): MediaComposition? {
     val visualClips = clips.asSequence()
         .filter { it.trackIndex == 0 && (it.mimeType.startsWith("video/") || it.mimeType.startsWith("image/")) }
@@ -461,7 +459,8 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): MediaComp
     return MediaComposition.Builder(sequences).build()
 }
 
-@OptIn(UnstableApi::class)
+@UnstableApi
+@ExperimentalApi
 private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long): EditedMediaItem {
     val mediaItemBuilder = MediaItem.Builder()
         .setUri(Uri.parse(clip.mediaUri))
