@@ -1,3 +1,8 @@
+@file:OptIn(
+    androidx.media3.common.util.UnstableApi::class,
+    androidx.media3.common.util.ExperimentalApi::class
+)
+
 package com.frameforge.app.ui
 
 import android.content.Intent
