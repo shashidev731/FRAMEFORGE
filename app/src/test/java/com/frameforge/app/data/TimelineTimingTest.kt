@@ -257,7 +257,7 @@ class TimelineTimingTest {
 
         assertEquals(3500L, sourceTimeAtTimelinePositionMs(media, 4000L))
         assertEquals(true, isTimelinePositionInsideClip(media, 4000L))
-        assertEquals(false, isTimelinePositionInsideClip(media, 7000L))
+        assertEquals(false, isTimelinePositionInsideClip(media, 13000L))
     }
 
     @Test

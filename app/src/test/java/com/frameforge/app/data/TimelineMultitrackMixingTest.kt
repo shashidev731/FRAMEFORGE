@@ -52,9 +52,9 @@ class TimelineMultitrackMixingTest {
 
     @Test
     fun speedAdjustmentScalesEffectiveDurationCorrectly() {
-        val normalClip = createClip("c1", 0, 0, 4000L, speed = 1.0f)
-        val slowMoClip = createClip("c2", 0, 1, 4000L, speed = 0.5f)
-        val fastMotionClip = createClip("c3", 0, 2, 4000L, speed = 2.0f)
+        val normalClip = createClip("c1", 0, 0, 4000L, speed = 1.0f, mimeType = "video/mp4")
+        val slowMoClip = createClip("c2", 0, 1, 4000L, speed = 0.5f, mimeType = "video/mp4")
+        val fastMotionClip = createClip("c3", 0, 2, 4000L, speed = 2.0f, mimeType = "video/mp4")
 
         assertEquals(4000L, (visibleClipDurationMs(normalClip) / normalClip.speed).toLong())
         assertEquals(8000L, (visibleClipDurationMs(slowMoClip) / slowMoClip.speed).toLong())

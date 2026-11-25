@@ -26,7 +26,8 @@ fun TimelineRuler(clips: List<TimelineClipEntity>) {
     val maxEndMs = clips.maxOfOrNull { clip ->
         saturatingTimelineEndMs(clip.timelineStartMs, effectiveClipDurationMs(clip))
     } ?: 0L
-    val totalSeconds = ((maxEndMs + 999L) / 1000L).toInt().coerceIn(10, 600)
+    val roundedSeconds = maxEndMs / 1000L + if (maxEndMs % 1000L == 0L) 0L else 1L
+    val totalSeconds = roundedSeconds.coerceIn(10L, 600L).toInt()
     val scroll = rememberScrollState()
 
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {

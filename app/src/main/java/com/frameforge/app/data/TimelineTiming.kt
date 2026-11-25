@@ -16,10 +16,13 @@ internal fun normalizedClipSpeed(speed: Float): Float =
     if (speed.isFinite()) speed.coerceIn(0.25f, 4.0f) else 1.0f
 
 /** Returns the clip's duration on the timeline after applying its playback speed. */
+internal fun effectiveClipSpeed(clip: TimelineClipEntity): Float =
+    if (clip.mimeType.startsWith("audio/")) 1.0f else normalizedClipSpeed(clip.speed)
+
 internal fun effectiveClipDurationMs(clip: TimelineClipEntity): Long {
     val sourceDurationMs = visibleClipDurationMs(clip)
     if (sourceDurationMs == 0L) return 0L
-    val scaledDuration = ceil(sourceDurationMs.toDouble() / normalizedClipSpeed(clip.speed))
+    val scaledDuration = ceil(sourceDurationMs.toDouble() / effectiveClipSpeed(clip))
     return if (!scaledDuration.isFinite() || scaledDuration >= Long.MAX_VALUE.toDouble()) {
         Long.MAX_VALUE
     } else {
@@ -40,7 +43,7 @@ internal fun sourceTimeAtTimelinePositionMs(clip: TimelineClipEntity, timelinePo
     val trimEndMs = normalizedClipTrimEndMs(clip)
     val elapsedTimelineMs = if (timelinePositionMs <= clip.timelineStartMs) 0L
         else timelinePositionMs - clip.timelineStartMs
-    val sourceOffset = elapsedTimelineMs.toDouble() * normalizedClipSpeed(clip.speed).toDouble()
+    val sourceOffset = elapsedTimelineMs.toDouble() * effectiveClipSpeed(clip).toDouble()
     val roundedOffset = if (!sourceOffset.isFinite() || sourceOffset >= Long.MAX_VALUE.toDouble()) {
         Long.MAX_VALUE
     } else {

@@ -503,7 +503,7 @@ private fun TimelineClipRow(
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(clip.displayName, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                val clipLengthMs = (normalizedClipTrimEndMs(clip) - normalizedClipTrimStartMs(clip)).coerceAtLeast(0L)
+                val clipLengthMs = effectiveClipDurationMs(clip)
                 Text(
                     if (clip.durationMs > 0L) "Starts ${formatTimelineDuration(clip.timelineStartMs)} • ${formatTimelineDuration(clipLengthMs)} • Gap ${formatTimelineDuration(clip.gapBeforeMs)}"
                     else "Starts ${formatTimelineDuration(clip.timelineStartMs)} • Duration unknown • Gap ${formatTimelineDuration(clip.gapBeforeMs)}",
