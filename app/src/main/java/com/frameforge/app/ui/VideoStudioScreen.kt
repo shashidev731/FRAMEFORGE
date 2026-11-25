@@ -189,6 +189,20 @@ private fun formatSeconds(value: Float): String {
     return "%02d:%02d".format(total / 60, total % 60)
 }
 
+internal fun mapExtractorSampleFlagsToCodecBufferFlags(sampleFlags: Int): Int {
+    if (sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED != 0) {
+        throw IOException("Encrypted samples cannot be remuxed without decryption support.")
+    }
+    var codecFlags = 0
+    if (sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0) {
+        codecFlags = codecFlags or MediaCodec.BUFFER_FLAG_KEY_FRAME
+    }
+    if (sampleFlags and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME != 0) {
+        codecFlags = codecFlags or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
+    }
+    return codecFlags
+}
+
 private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: Long, endUs: Long, onProgress: (Float) -> Unit = {}) {
     require(startUs >= 0L && endUs > startUs) { "Choose a valid trim range" }
     val extractor = MediaExtractor()
@@ -237,7 +251,7 @@ private fun trimVideoToMp4(context: Context, input: Uri, output: Uri, startUs: L
                     throw IOException("A media sample exceeds the safe export buffer. Try a shorter or lower-resolution source.")
                 }
                 if (baseTimeUs < 0L) baseTimeUs = sampleTime
-                info.set(0, size, (sampleTime - baseTimeUs).coerceAtLeast(0L), extractor.sampleFlags)
+                info.set(0, size, (sampleTime - baseTimeUs).coerceAtLeast(0L), mapExtractorSampleFlagsToCodecBufferFlags(extractor.sampleFlags))
                 muxer.writeSampleData(targetTrack, buffer, info)
                 samplesWritten++
             }
