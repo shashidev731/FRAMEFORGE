@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
 import com.frameforge.app.data.MediaEntity
 import com.frameforge.app.data.TimelineClipEntity
 import com.frameforge.app.data.TimelineRepository
@@ -49,6 +50,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@UnstableApi
 @Composable
 fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository: TimelineRepository) {
     val clips by repository.clips(projectId).collectAsStateWithLifecycle(initialValue = emptyList())
