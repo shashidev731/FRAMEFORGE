@@ -24,7 +24,7 @@ Package: `com.frameforge.app`
 - Fade-in and fade-out curves processed via Media3 `GainProcessor` and `DefaultGainProvider`.
 
 ### 📸 Photo Studio
-- Non-destructive image adjustments: Exposure, Saturation, Contrast, and Warmth.
+- Non-destructive image adjustments: Exposure, Saturation, Contrast, Warmth, luminance-weighted Highlights and Shadows, and a four-neighbour Sharpness control.
 - One-tap filter presets: Vivid, B&W, Vintage, Cool, Warm, and Moody.
 - Aspect ratio crop presets: Square (`1:1`), Portrait (`4:5`, `9:16`), Landscape (`16:9`, `3:2`), and Free crop with offset panning.
 - Live original-vs-edited toggle comparison.

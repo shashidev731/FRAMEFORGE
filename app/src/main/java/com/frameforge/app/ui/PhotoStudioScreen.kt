@@ -167,13 +167,13 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                     Text("Filter Presets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(
-                            "Normal" to { exposure = 0f; saturation = 1f; contrast = 1f; warmth = 0f },
-                            "Vivid" to { exposure = 0.2f; saturation = 1.4f; contrast = 1.15f; warmth = 0.1f },
-                            "B&W" to { exposure = 0.1f; saturation = 0f; contrast = 1.25f; warmth = 0f },
-                            "Vintage" to { exposure = 0.1f; saturation = 0.75f; contrast = 0.9f; warmth = 0.4f },
-                            "Cool" to { exposure = 0f; saturation = 1.1f; contrast = 1.05f; warmth = -0.35f },
-                            "Warm" to { exposure = 0.1f; saturation = 1.15f; contrast = 1.05f; warmth = 0.4f },
-                            "Moody" to { exposure = -0.3f; saturation = 0.85f; contrast = 1.35f; warmth = -0.1f }
+                            "Normal" to { exposure = 0f; saturation = 1f; contrast = 1f; warmth = 0f; highlights = 0f; shadows = 0f; sharpness = 0f },
+                            "Vivid" to { exposure = 0.2f; saturation = 1.4f; contrast = 1.15f; warmth = 0.1f; highlights = -0.1f; shadows = 0.2f; sharpness = 0.25f },
+                            "B&W" to { exposure = 0.1f; saturation = 0f; contrast = 1.25f; warmth = 0f; highlights = -0.2f; shadows = 0.15f; sharpness = 0.3f },
+                            "Vintage" to { exposure = 0.1f; saturation = 0.75f; contrast = 0.9f; warmth = 0.4f; highlights = -0.25f; shadows = 0.2f; sharpness = 0.1f },
+                            "Cool" to { exposure = 0f; saturation = 1.1f; contrast = 1.05f; warmth = -0.35f; highlights = -0.1f; shadows = 0.1f; sharpness = 0.15f },
+                            "Warm" to { exposure = 0.1f; saturation = 1.15f; contrast = 1.05f; warmth = 0.4f; highlights = -0.15f; shadows = 0.15f; sharpness = 0.1f },
+                            "Moody" to { exposure = -0.3f; saturation = 0.85f; contrast = 1.35f; warmth = -0.1f; highlights = -0.35f; shadows = -0.1f; sharpness = 0.25f }
                         ).forEach { (name, applyPreset) ->
                             FilledTonalButton(onClick = applyPreset) { Text(name, style = MaterialTheme.typography.labelSmall) }
                         }

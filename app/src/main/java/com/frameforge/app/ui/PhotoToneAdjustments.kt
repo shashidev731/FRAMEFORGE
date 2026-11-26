@@ -39,24 +39,25 @@ internal fun adjustPhotoPixels(
                 shadowAmount * shadowWeight + highlightAmount * highlightWeight
             ) * 64f
 
-            var neighborRed = 0f
-            var neighborGreen = 0f
-            var neighborBlue = 0f
-            var neighborCount = 0
-            val neighbors = intArrayOf(
-                (y - 1).coerceAtLeast(0) * width + x,
-                (y + 1).coerceAtMost(height - 1) * width + x,
-                y * width + (x - 1).coerceAtLeast(0),
-                y * width + (x + 1).coerceAtMost(width - 1)
-            )
-            for (neighborIndex in neighbors) {
-                val neighbor = source[neighborIndex]
-                neighborRed += channel(neighbor, 16)
-                neighborGreen += channel(neighbor, 8)
-                neighborBlue += channel(neighbor, 0)
-                neighborCount++
-            }
-            val inverseCount = 1f / neighborCount
+            // Clamp at image edges and read the four-neighbour kernel without
+            // allocating a temporary array for every pixel.
+            val top = source[(y - 1).coerceAtLeast(0) * width + x]
+            val bottom = source[(y + 1).coerceAtMost(height - 1) * width + x]
+            val left = source[y * width + (x - 1).coerceAtLeast(0)]
+            val right = source[y * width + (x + 1).coerceAtMost(width - 1)]
+            val inverseCount = 0.25f
+            val neighborRed = (
+                channel(top, 16) + channel(bottom, 16) +
+                    channel(left, 16) + channel(right, 16)
+                ) * inverseCount
+            val neighborGreen = (
+                channel(top, 8) + channel(bottom, 8) +
+                    channel(left, 8) + channel(right, 8)
+                ) * inverseCount
+            val neighborBlue = (
+                channel(top, 0) + channel(bottom, 0) +
+                    channel(left, 0) + channel(right, 0)
+                ) * inverseCount
             val redDetail = red - neighborRed * inverseCount
             val greenDetail = green - neighborGreen * inverseCount
             val blueDetail = blue - neighborBlue * inverseCount
