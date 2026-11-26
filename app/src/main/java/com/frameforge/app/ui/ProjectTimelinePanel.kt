@@ -158,7 +158,17 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                     }
                     Text("Track assignment", color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        listOf(0 to "Video", 1 to "Audio", 2 to "Overlay 2", 3 to "Overlay 3").forEach { (track, label) ->
+                        val trackAssignments = if (selectedClip.mimeType.startsWith("audio/")) {
+                            listOf(1 to "Audio 1", 2 to "Audio 2", 3 to "Audio 3")
+                        } else {
+                            listOf(
+                                0 to "Main video",
+                                100 to "Overlay 1",
+                                101 to "Overlay 2",
+                                102 to "Overlay 3"
+                            )
+                        }
+                        trackAssignments.forEach { (track, label) ->
                             OutlinedButton(
                                 onClick = { scope.launch { repository.moveToTrack(selectedClip.clipId, track) } },
                                 enabled = selectedClip.trackIndex != track,

@@ -189,8 +189,11 @@ interface TimelineClipDao {
     @Transaction
     suspend fun restoreProjectClips(projectId: String, snapshot: List<TimelineClipEntity>) {
         require(snapshot.all { it.projectId == projectId }) { "Snapshot contains clips from another project" }
+        val normalized = normalizeLegacyTimelineTrackAssignments(snapshot)
+        val positioned = normalized.groupBy { it.trackIndex }.values
+            .flatMap(::withSequentialTimelineOffsets)
+            .sortedWith(compareBy<TimelineClipEntity> { it.trackIndex }.thenBy { it.position })
         deleteForProject(projectId)
-        snapshot.sortedWith(compareBy<TimelineClipEntity> { it.trackIndex }.thenBy { it.position })
-            .forEach { insert(it) }
+        positioned.forEach { insert(it) }
     }
 }

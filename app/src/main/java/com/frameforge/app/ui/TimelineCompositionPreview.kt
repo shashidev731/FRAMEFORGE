@@ -409,56 +409,54 @@ private const val VIDEO_TRACK_TYPE = 2
 @UnstableApi
 @ExperimentalApi
 private fun buildTimelineComposition(clips: List<TimelineClipEntity>): MediaComposition? {
-    val visualClips = clips.asSequence()
-        .filter { it.trackIndex == 0 && (it.mimeType.startsWith("video/") || it.mimeType.startsWith("image/")) }
-        .sortedBy { it.timelineStartMs }
-        .toList()
+    val visualTracks = groupVisualTimelineTracks(clips)
+    val audioTracks = groupAudioTimelineTracks(clips)
 
-    // Multitrack audio: group by trackIndex for all tracks >= 1 containing audio
-    val audioClipsByTrack = clips.asSequence()
-        .filter { it.trackIndex >= 1 && it.mimeType.startsWith("audio/") }
-        .groupBy { it.trackIndex }
-
-    if (visualClips.none { effectiveClipDurationMs(it) > 0L }) return null
-
-    val visualSequence = EditedMediaItemSequence.Builder(setOf(VIDEO_TRACK_TYPE))
-    var visualCursorMs = 0L
-    visualClips.forEach { clip ->
-        val durationMs = effectiveClipDurationMs(clip)
-        if (durationMs > 0L) {
-            val gapMs = (clip.timelineStartMs - visualCursorMs).coerceAtLeast(0L)
-            if (gapMs > 0L) visualSequence.addGap(gapMs * 1_000L)
-            visualSequence.addItem(buildEditedTimelineItem(clip, durationMs))
-            visualCursorMs = maxOf(visualCursorMs, saturatingTimelineEndMs(clip.timelineStartMs, durationMs))
-        }
-    }
+    // An audio-only project has no video composition to preview or export.
+    if (visualTracks.none { track -> track.clips.any { effectiveClipDurationMs(it) > 0L } }) return null
 
     val sequences = buildList {
-        add(visualSequence.build())
+        // Track 0 is the base visual sequence. Tracks 100+ are composited above
+        // it in ascending track order, while each sequence remains internally linear.
+        visualTracks.forEach { track ->
+            buildTimelineTrackSequence(track.clips, VIDEO_TRACK_TYPE, ::effectiveClipDurationMs)
+                ?.let(::add)
+        }
 
-        // Add each distinct audio track as its own concurrent sequence for multitrack mixing
-        audioClipsByTrack.keys.sorted().forEach { trackIndex ->
-            val trackClips = audioClipsByTrack.getValue(trackIndex).sortedBy { it.timelineStartMs }
-            if (trackClips.any { visibleClipDurationMs(it) > 0L }) {
-                val audioSequence = EditedMediaItemSequence.Builder(setOf(AUDIO_TRACK_TYPE))
-                var audioCursorMs = 0L
-                trackClips.forEach { clip ->
-                    val durationMs = visibleClipDurationMs(clip)
-                    if (durationMs > 0L) {
-                        val gapMs = (clip.timelineStartMs - audioCursorMs).coerceAtLeast(0L)
-                        if (gapMs > 0L) audioSequence.addGap(gapMs * 1_000L)
-                        audioSequence.addItem(buildEditedTimelineItem(clip, durationMs))
-                        audioCursorMs = maxOf(audioCursorMs, saturatingTimelineEndMs(clip.timelineStartMs, durationMs))
-                    }
-                }
-                add(audioSequence.build())
-            }
+        // Audio tracks occupy 1..99 and are mixed concurrently with the visual layers.
+        audioTracks.forEach { track ->
+            buildTimelineTrackSequence(track.clips, AUDIO_TRACK_TYPE, ::visibleClipDurationMs)
+                ?.let(::add)
         }
     }
 
-    return MediaComposition.Builder(sequences).build()
+    return sequences.takeIf { it.isNotEmpty() }?.let { MediaComposition.Builder(it).build() }
 }
 
+@UnstableApi
+@ExperimentalApi
+private fun buildTimelineTrackSequence(
+    clips: List<TimelineClipEntity>,
+    trackType: Int,
+    durationForClip: (TimelineClipEntity) -> Long
+): EditedMediaItemSequence? {
+    val validClips = clips.filter { durationForClip(it) > 0L }.sortedBy { it.timelineStartMs }
+    if (validClips.isEmpty()) return null
+
+    val sequence = EditedMediaItemSequence.Builder(setOf(trackType))
+    var cursorMs = 0L
+    validClips.forEach { clip ->
+        val durationMs = durationForClip(clip)
+        val gapMs = (clip.timelineStartMs - cursorMs).coerceAtLeast(0L)
+        if (gapMs > 0L) {
+            val gapUs = gapMs.coerceAtMost(Long.MAX_VALUE / 1_000L) * 1_000L
+            sequence.addGap(gapUs)
+        }
+        sequence.addItem(buildEditedTimelineItem(clip, durationMs))
+        cursorMs = maxOf(cursorMs, saturatingTimelineEndMs(clip.timelineStartMs, durationMs))
+    }
+    return sequence.build()
+}
 @UnstableApi
 @ExperimentalApi
 private fun buildEditedTimelineItem(clip: TimelineClipEntity, durationMs: Long): EditedMediaItem {

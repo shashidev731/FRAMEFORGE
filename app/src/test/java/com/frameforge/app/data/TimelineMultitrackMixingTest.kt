@@ -1,6 +1,7 @@
 package com.frameforge.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -77,5 +78,80 @@ class TimelineMultitrackMixingTest {
         assertEquals(500L, reflowed1[0].timelineStartMs)
         assertEquals(3500L, reflowed1[1].timelineStartMs) // 500 + 2000 + 1000
         assertEquals(0L, reflowed2[0].timelineStartMs)
+    }
+}
+
+
+class TimelineVisualTrackCompositionTest {
+    private fun clip(
+        id: String,
+        trackIndex: Int,
+        position: Int = 0,
+        mimeType: String
+    ) = TimelineClipEntity(
+        clipId = id,
+        projectId = "visual_tracks",
+        mediaUri = "content://media/$id",
+        displayName = id,
+        mimeType = mimeType,
+        trackIndex = trackIndex,
+        position = position,
+        durationMs = 2_000L,
+        trimEndMs = 2_000L,
+        createdAt = 1L
+    )
+
+    @Test
+    fun visualAndAudioTracksAreGroupedIntoSeparateCompositionLayers() {
+        val clips = listOf(
+            clip("main", 0, mimeType = "video/mp4"),
+            clip("overlayOne", 100, mimeType = "image/png"),
+            clip("overlayTwo", 101, mimeType = "video/mp4"),
+            clip("music", 1, mimeType = "audio/mp4"),
+            clip("voice", 2, mimeType = "audio/wav")
+        )
+
+        val visualTracks = groupVisualTimelineTracks(clips)
+        val audioTracks = groupAudioTimelineTracks(clips)
+
+        assertEquals(listOf(0, 100, 101), visualTracks.map { it.trackIndex })
+        assertEquals(listOf("main"), visualTracks[0].clips.map { it.clipId })
+        assertEquals(listOf("overlayOne"), visualTracks[1].clips.map { it.clipId })
+        assertEquals(listOf(1, 2), audioTracks.map { it.trackIndex })
+        assertEquals(3, visualTracks.size)
+        assertEquals(2, audioTracks.size)
+    }
+
+    @Test
+    fun legacyVisualTracksAreMovedAboveAudioRangeWhenRestoringHistory() {
+        val clips = listOf(
+            clip("base", 0, mimeType = "video/mp4"),
+            clip("legacyOverlayOne", 1, mimeType = "video/mp4"),
+            clip("legacyOverlayTwo", 2, mimeType = "image/png"),
+            clip("music", 1, mimeType = "audio/mp4"),
+            clip("voice", 2, mimeType = "audio/wav"),
+            clip("legacyAudio", 0, mimeType = "audio/ogg")
+        )
+
+        val normalized = normalizeLegacyTimelineTrackAssignments(clips).associateBy { it.clipId }
+
+        assertEquals(0, normalized.getValue("base").trackIndex)
+        assertEquals(100, normalized.getValue("legacyOverlayOne").trackIndex)
+        assertEquals(101, normalized.getValue("legacyOverlayTwo").trackIndex)
+        assertEquals(1, normalized.getValue("music").trackIndex)
+        assertEquals(2, normalized.getValue("voice").trackIndex)
+        assertEquals(3, normalized.getValue("legacyAudio").trackIndex)
+    }
+
+    @Test
+    fun trackAssignmentRejectsCrossKindAndReservedIndices() {
+        assertTrue(isTrackAssignmentAllowed("video/mp4", 0))
+        assertTrue(isTrackAssignmentAllowed("image/png", 100))
+        assertTrue(isTrackAssignmentAllowed("audio/mp4", 1))
+        assertTrue(isTrackAssignmentAllowed("audio/wav", 99))
+        assertFalse(isTrackAssignmentAllowed("video/mp4", 1))
+        assertFalse(isTrackAssignmentAllowed("audio/mp4", 0))
+        assertFalse(isTrackAssignmentAllowed("audio/mp4", 100))
+        assertFalse(isTrackAssignmentAllowed("video/mp4", 99))
     }
 }

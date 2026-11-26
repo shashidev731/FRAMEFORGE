@@ -151,6 +151,7 @@ class TimelineRepository(
 
     suspend fun moveToTrack(clipId: String, trackIndex: Int) {
         val clip = dao.find(clipId) ?: return
+        if (!isTrackAssignmentAllowed(clip.mimeType, trackIndex)) return
         recordSnapshot(clip.projectId) { dao.moveToTrack(clipId, trackIndex) }
     }
 

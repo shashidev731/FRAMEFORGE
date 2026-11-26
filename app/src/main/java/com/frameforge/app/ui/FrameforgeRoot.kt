@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
 import com.frameforge.app.data.ProjectEntity
 import com.frameforge.app.data.ProjectRepository
 import com.frameforge.app.data.MediaEntity
@@ -42,7 +43,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     AI("AI Studio", Icons.Default.AutoAwesome), Library("Library", Icons.Default.Collections),
     Settings("Settings", Icons.Default.Settings)
 }
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, UnstableApi::class)
 @Composable
 fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaRepository, editHistoryRepository: EditHistoryRepository, timelineRepository: TimelineRepository) {
     var tab by remember { mutableStateOf(Tab.Home) }
