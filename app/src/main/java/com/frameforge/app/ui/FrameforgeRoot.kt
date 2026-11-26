@@ -28,6 +28,7 @@ import com.frameforge.app.data.MediaRepository
 import com.frameforge.app.data.EditHistoryRepository
 import com.frameforge.app.data.TimelineRepository
 import androidx.compose.ui.platform.LocalContext
+import java.io.File
 import androidx.compose.ui.viewinterop.AndroidView
 import android.provider.OpenableColumns
 import android.net.Uri
@@ -35,7 +36,9 @@ import android.widget.ImageView
 import android.widget.VideoView
 import android.widget.MediaController
 import com.frameforge.app.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     Home("Home", Icons.Default.Home), Projects("Projects", Icons.Default.FolderOpen),
@@ -54,7 +57,8 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     var projectType by remember { mutableStateOf("Video") }
     var ratio by remember { mutableStateOf("9:16") }
     var customRatioText by remember { mutableStateOf("3:2") }
-    var importedCount by remember { mutableIntStateOf(0) }
+    var importStatus by remember { mutableStateOf<String?>(null) }
+    var isImporting by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val preferences = remember(context) { contextPreferences(context) }
     var workspaceMode by remember { mutableStateOf(preferences.getString("workspace_mode", "Simple") ?: "Simple") }
@@ -63,18 +67,56 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
     val media by mediaRepository.media.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
     val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        importedCount += uris.size
-        uris.forEach { uri ->
-            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            val name = runCatching {
-                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) cursor.getString(0) else null
+        if (uris.isNotEmpty()) {
+            isImporting = true
+            importStatus = "Importing " + uris.size + " item(s)…"
+            scope.launch {
+                val importResults = withContext(Dispatchers.IO) {
+                    uris.map { uri ->
+                        runCatching {
+                            val name = runCatching {
+                                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                                }
+                            }.getOrNull()?.take(120)?.ifBlank { null }
+                                ?: uri.lastPathSegment?.substringAfterLast('/')?.take(80)?.ifBlank { "Selected media" }
+                                ?: "Selected media"
+                            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                            val stableResult = persistOrCopyImportedMedia(context, uri, name)
+                            ImportedMediaRecord(stableResult.first.toString(), name, mime, stableResult.second)
+                        }
+                    }
                 }
-            }.getOrNull()?.take(120)?.ifBlank { null }
-                ?: uri.lastPathSegment?.substringAfterLast('/')?.take(80)?.ifBlank { "Selected media" }
-                ?: "Selected media"
-            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
-            scope.launch { mediaRepository.add(uri.toString(), name, mime) }
+
+                var imported = 0
+                var copiedLocally = 0
+                val failures = mutableListOf<String>()
+                importResults.forEach { result ->
+                    val item = result.getOrNull()
+                    if (item == null) {
+                        failures += result.exceptionOrNull()?.message ?: "An item could not be read."
+                    } else {
+                        try {
+                            mediaRepository.add(item.uri, item.displayName, item.mimeType)
+                            imported++
+                            if (item.copiedLocally) copiedLocally++
+                        } catch (failure: Exception) {
+                            if (item.copiedLocally) {
+                                Uri.parse(item.uri).path?.let { path -> File(path).delete() }
+                            }
+                            failures += failure.message ?: "An item could not be saved to the library."
+                        }
+                    }
+                }
+
+                isImporting = false
+                importStatus = when {
+                    imported == uris.size && copiedLocally == 0 -> "Imported " + imported + " item(s)."
+                    imported == uris.size -> "Imported " + imported + " item(s); " + copiedLocally + " copied into app storage for reliable access."
+                    imported > 0 -> "Imported " + imported + " of " + uris.size + " item(s); " + failures.size + " failed."
+                    else -> "Import failed: " + (failures.firstOrNull() ?: "No media could be imported.")
+                }
+            }
         }
     }
     Scaffold(
@@ -128,7 +170,14 @@ fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaReposito
             Tab.Video -> VideoStudioScreen(Modifier.padding(inset), studioProjectId, editHistoryRepository)
             Tab.Photo -> PhotoStudioScreen(Modifier.padding(inset), studioProjectId, editHistoryRepository)
             Tab.AI -> AiStudioScreen(Modifier.padding(inset))
-            Tab.Library -> MediaLibraryScreen(media, Modifier.padding(inset), { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) }, { uri -> scope.launch { mediaRepository.delete(uri) } })
+            Tab.Library -> MediaLibraryScreen(
+                media = media,
+                modifier = Modifier.padding(inset),
+                importMedia = { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) },
+                removeMedia = { uri -> scope.launch { mediaRepository.delete(uri) } },
+                importStatus = importStatus,
+                isImporting = isImporting
+            )
             Tab.Settings -> SettingsScreen(
                 workspaceMode = workspaceMode,
                 onWorkspaceModeChange = { mode ->
@@ -505,14 +554,16 @@ private fun MediaLibraryScreen(
     media: List<MediaEntity>,
     modifier: Modifier,
     importMedia: () -> Unit,
-    removeMedia: (String) -> Unit
+    removeMedia: (String) -> Unit,
+    importStatus: String?,
+    isImporting: Boolean
 ) {
     var previewItem by remember { mutableStateOf<MediaEntity?>(null) }
     var mediaQuery by remember { mutableStateOf("") }
     var mediaFilter by remember { mutableStateOf("All") }
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Media Library", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Your selected media stays on your device. Original files are not copied, changed or deleted.", color = Muted)
+        Text("Original files are never modified. If a document provider cannot preserve access, FRAMEFORGE stores a private copy for reliable editing.", color = Muted)
         OutlinedTextField(
             value = mediaQuery,
             onValueChange = { mediaQuery = it },
@@ -526,10 +577,18 @@ private fun MediaLibraryScreen(
                 FilterChip(selected = mediaFilter == filter, onClick = { mediaFilter = filter }, label = { Text(filter) })
             }
         }
-        Button(onClick = importMedia) {
-            Icon(Icons.Default.Add, null)
+        Button(onClick = importMedia, enabled = !isImporting) {
+            if (isImporting) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            else Icon(Icons.Default.Add, null)
             Spacer(Modifier.width(8.dp))
-            Text("Import photos, videos or audio")
+            Text(if (isImporting) "Importing…" else "Import photos, videos or audio")
+        }
+        importStatus?.let { status ->
+            Text(
+                status,
+                color = if (status.startsWith("Import failed")) MaterialTheme.colorScheme.error else Muted,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         val filteredMedia = media.filter { item ->
             val matchesQuery = item.displayName.contains(mediaQuery, ignoreCase = true)
