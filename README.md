@@ -30,16 +30,18 @@ Package: `com.frameforge.app`
 - Live original-vs-edited toggle comparison.
 - High-quality JPEG export directly to Android device storage.
 
-### 🤖 AI Studio
-- **Smart Scene Detection**: On-device video frame variance analyzer that identifies cut points and shot transitions without cloud dependencies.
-- **AI Image Enhancer**: Dynamic range and luminance analyzer offering tailored adjustment recommendations.
-- **Speech-to-Text & Subtitles**: Provider interface for Gemini 1.5 with secure local key storage in SharedPreferences.
+### 🧪 On-device Creative Tools
+- **Scene-change hints**: Samples video frames and compares average luminance. This is a lightweight brightness heuristic, not semantic scene recognition.
+- **Photo analysis**: Samples images to a 512 px longest edge before calculating luminance-based starting suggestions.
+- **Cloud AI and speech transcription**: Disabled until a real provider integration, secure credential handling, consent flow, and tests are implemented. No API keys are collected or stored; the previous plaintext Gemini preference is cleared on launch.
 
 ### 🚀 Media Export Engine
 - Output resolution presets: `720p` (HD), `1080p` (Full HD), and `4K` (Ultra HD).
 - Target frame rates: `24 fps`, `30 fps`, and `60 fps`.
 - Video codecs: `H.264` (AVC) and `H.265` (HEVC) in MP4 containers.
-- Real-time progress bar (0% - 100%), cancellation support, and direct Android system share sheet invocation.
+- Real-time progress, cancellation, and error handling through Media3 Transformer.
+- Resolution, frame-rate, codec, quality, and bitrate requests are applied to the encoder.
+- Completed exports can be copied to a user-selected destination through Android's Storage Access Framework or shared through the system chooser.
 
 ### 🎨 Design System
 - Material 3 with a custom dark theme enabled by default (`#0F1115` canvas).
@@ -57,7 +59,7 @@ Package: `com.frameforge.app`
 - **Language**: Kotlin 2.0.21
 - **UI Framework**: Jetpack Compose (BOM 2024.12.01) + Material 3
 - **Media Engine**: AndroidX Media3 1.9.0 (Transformer, Effect, UI, Common)
-- **Database**: Room 2.6.1 (Schema v10 with migrations 1 through 10)
+- **Database**: Room 2.6.1 (Schema v11 with migrations 1 through 11)
 - **Build System**: Gradle 8.11.1 + AGP 8.10.1
 
 ---
@@ -68,13 +70,17 @@ Package: `com.frameforge.app`
 # Build debug APK
 ./gradlew :app:assembleDebug
 
-# Build optimized release APK
+# Build release APK (unsigned unless release signing environment variables are configured)
 ./gradlew :app:assembleRelease
 
 # Run unit tests
 ./gradlew :app:testDebugUnitTest
+
+# Release signing instructions
+# See RELEASE_SIGNING.md. Never commit a keystore or signing password.
 ```
 
 ### Artifacts Generated
-- Debug APK: `app/build/outputs/apk/debug/app-debug.apk` (22.7 MB)
-- Release APK: `app/build/outputs/apk/release/app-release.apk` (15.3 MB)
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
+- Signed release APK: `app/build/outputs/apk/release/app-release.apk` when a private release keystore is configured.
+- Otherwise, CI produces `app/build/outputs/apk/release/app-release-unsigned.apk`. An unsigned APK is a build artifact, not an installable production release.

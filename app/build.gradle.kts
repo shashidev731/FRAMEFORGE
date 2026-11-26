@@ -1,3 +1,14 @@
+val releaseStoreFilePath = System.getenv("FRAMEFORGE_RELEASE_STORE_FILE")
+val releaseStorePassword = System.getenv("FRAMEFORGE_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("FRAMEFORGE_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("FRAMEFORGE_RELEASE_KEY_PASSWORD")
+val releaseSigningConfigured = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,6 +17,16 @@ plugins {
 }
 android {
     namespace = "com.frameforge.app"
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(checkNotNull(releaseStoreFilePath))
+                storePassword = checkNotNull(releaseStorePassword)
+                keyAlias = checkNotNull(releaseKeyAlias)
+                keyPassword = checkNotNull(releaseKeyPassword)
+            }
+        }
+    }
     compileSdk = 36
     defaultConfig {
         applicationId = "com.frameforge.app"
@@ -22,7 +43,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            // Never ship a release build signed with the public debug key.
+            // Without a user-provided keystore, Gradle emits app-release-unsigned.apk.
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {

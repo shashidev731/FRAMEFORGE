@@ -30,6 +30,27 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
+      - name: Prepare optional release signing
+        env:
+          FRAMEFORGE_KEYSTORE_BASE64: ${{ secrets.FRAMEFORGE_KEYSTORE_BASE64 }}
+          FRAMEFORGE_KEYSTORE_PASSWORD: ${{ secrets.FRAMEFORGE_KEYSTORE_PASSWORD }}
+          FRAMEFORGE_KEY_ALIAS: ${{ secrets.FRAMEFORGE_KEY_ALIAS }}
+          FRAMEFORGE_KEY_PASSWORD: ${{ secrets.FRAMEFORGE_KEY_PASSWORD }}
+        run: |
+          if [ -n "${FRAMEFORGE_KEYSTORE_BASE64:-}" ]; then
+            keystore="$RUNNER_TEMP/frameforge-release.keystore"
+            printf '%s' "$FRAMEFORGE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+            test -s "$keystore"
+            {
+              echo "FRAMEFORGE_RELEASE_STORE_FILE=$keystore"
+              echo "FRAMEFORGE_RELEASE_STORE_PASSWORD=$FRAMEFORGE_KEYSTORE_PASSWORD"
+              echo "FRAMEFORGE_RELEASE_KEY_ALIAS=$FRAMEFORGE_KEY_ALIAS"
+              echo "FRAMEFORGE_RELEASE_KEY_PASSWORD=$FRAMEFORGE_KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "A release keystore was provided; the release APK will be signed."
+          else
+            echo "No release keystore configured; the release APK will remain unsigned."
+          fi
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
       - name: Run lint
@@ -56,7 +77,22 @@ jobs:
       - name: Validate APK outputs
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
-          test -s app/build/outputs/apk/release/app-release.apk
+          release_dir="app/build/outputs/apk/release"
+          if [ -s "$release_dir/app-release.apk" ]; then
+            release_apk="$release_dir/app-release.apk"
+            release_signing="signed"
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$release_apk"
+          elif [ -s "$release_dir/app-release-unsigned.apk" ]; then
+            release_apk="$release_dir/app-release-unsigned.apk"
+            release_signing="unsigned"
+          else
+            echo "No release APK was generated." >&2
+            exit 1
+          fi
+          unzip -t "$release_apk" >/dev/null
+          echo "RELEASE_APK_PATH=$release_apk" >> "$GITHUB_ENV"
+          echo "RELEASE_APK_SIGNING=$release_signing" >> "$GITHUB_ENV"
+          echo "Release artifact: $release_apk ($release_signing)" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -66,6 +102,6 @@ jobs:
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: frameforge-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: frameforge-release-${{ env.RELEASE_APK_SIGNING }}-apk
+          path: ${{ env.RELEASE_APK_PATH }}
           if-no-files-found: error
