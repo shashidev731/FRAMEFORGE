@@ -43,7 +43,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     AI("AI Studio", Icons.Default.AutoAwesome), Library("Library", Icons.Default.Collections),
     Settings("Settings", Icons.Default.Settings)
 }
-@OptIn(ExperimentalMaterial3Api::class, UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FrameforgeRoot(repository: ProjectRepository, mediaRepository: MediaRepository, editHistoryRepository: EditHistoryRepository, timelineRepository: TimelineRepository) {
     var tab by remember { mutableStateOf(Tab.Home) }
@@ -360,6 +360,7 @@ private fun QuickTile(label: String, icon: ImageVector, modifier: Modifier, open
 
 
 
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 @Composable
 private fun ProjectWorkspaceScreen(
     project: ProjectEntity,
