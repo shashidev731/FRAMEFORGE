@@ -38,6 +38,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.frameforge.app.data.MediaEntity
 import com.frameforge.app.data.TimelineClipEntity
+import com.frameforge.app.data.FIRST_OVERLAY_TRACK_INDEX
+import com.frameforge.app.data.LAST_AUDIO_TRACK_INDEX
 import com.frameforge.app.data.TimelineRepository
 import com.frameforge.app.data.normalizedClipTrimStartMs
 import com.frameforge.app.data.normalizedClipTrimEndMs
