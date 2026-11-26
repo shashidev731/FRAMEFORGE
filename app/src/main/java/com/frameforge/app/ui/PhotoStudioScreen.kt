@@ -46,6 +46,9 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
     var saturation by remember { mutableFloatStateOf(1f) }
     var contrast by remember { mutableFloatStateOf(1f) }
     var warmth by remember { mutableFloatStateOf(0f) }
+    var highlights by remember { mutableFloatStateOf(0f) }
+    var shadows by remember { mutableFloatStateOf(0f) }
+    var sharpness by remember { mutableFloatStateOf(0f) }
     var overlayText by remember { mutableStateOf("") }
     var rotation by remember { mutableIntStateOf(0) }
     var cropRatio by remember { mutableStateOf("Original") }
@@ -73,6 +76,9 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 saturation = 1f
                 contrast = 1f
                 warmth = 0f
+                highlights = 0f
+                shadows = 0f
+                sharpness = 0f
                 overlayText = ""
                 rotation = 0
                 cropRatio = "Original"
@@ -107,12 +113,12 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
         }
     }
 
-    LaunchedEffect(sourceBitmap, exposure, saturation, contrast, warmth, overlayText, rotation, cropRatio, cropHorizontalPosition, cropVerticalPosition) {
+    LaunchedEffect(sourceBitmap, exposure, saturation, contrast, warmth, highlights, shadows, sharpness, overlayText, rotation, cropRatio, cropHorizontalPosition, cropVerticalPosition) {
         val source = sourceBitmap ?: run { previewBitmap = null; return@LaunchedEffect }
         isProcessing = true
         delay(120)
         val result = withContext(Dispatchers.Default) {
-            runCatching { renderPhotoEdit(source, exposure, saturation, contrast, warmth, overlayText, rotation, cropRatio, cropHorizontalPosition, cropVerticalPosition) }.getOrNull()
+            runCatching { renderPhotoEdit(source, exposure, saturation, contrast, warmth, highlights, shadows, sharpness, overlayText, rotation, cropRatio, cropHorizontalPosition, cropVerticalPosition) }.getOrNull()
         }
         previewBitmap = result
         isProcessing = false
@@ -182,6 +188,12 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                     Slider(value = contrast, onValueChange = { contrast = it }, valueRange = 0.5f..1.5f)
                     Text("Warmth  •  ${"%.1f".format(warmth)}", fontWeight = FontWeight.Medium)
                     Slider(value = warmth, onValueChange = { warmth = it }, valueRange = -1f..1f)
+                    Text("Highlights  •  ${"%.1f".format(highlights)}", fontWeight = FontWeight.Medium)
+                    Slider(value = highlights, onValueChange = { highlights = it }, valueRange = -1f..1f)
+                    Text("Shadows  •  ${"%.1f".format(shadows)}", fontWeight = FontWeight.Medium)
+                    Slider(value = shadows, onValueChange = { shadows = it }, valueRange = -1f..1f)
+                    Text("Sharpness  •  ${"%.1f".format(sharpness)}", fontWeight = FontWeight.Medium)
+                    Slider(value = sharpness, onValueChange = { sharpness = it }, valueRange = 0f..1f)
                     OutlinedTextField(
                         value = overlayText,
                         onValueChange = { overlayText = it.take(80) },
@@ -223,6 +235,9 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                             saturation = 1f
                             contrast = 1f
                             warmth = 0f
+                            highlights = 0f
+                            shadows = 0f
+                            sharpness = 0f
                             overlayText = ""
                             rotation = 0
                             cropRatio = "Original"
@@ -237,7 +252,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
             Button(
                 onClick = {
                     exportBitmap = previewBitmap
-                    exportSummary = "crop=$cropRatio; cropX=$cropHorizontalPosition; cropY=$cropVerticalPosition; exposure=$exposure EV; saturation=$saturation; contrast=$contrast; warmth=$warmth; rotation=$rotation; text=$overlayText"
+                    exportSummary = "crop=$cropRatio; cropX=$cropHorizontalPosition; cropY=$cropVerticalPosition; exposure=$exposure EV; saturation=$saturation; contrast=$contrast; warmth=$warmth; highlights=$highlights; shadows=$shadows; sharpness=$sharpness; rotation=$rotation; text=$overlayText"
                     savePicker.launch("FRAMEFORGE_${System.currentTimeMillis()}.jpg")
                 },
                 enabled = previewBitmap != null && !isProcessing,
@@ -249,7 +264,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
             }
         }
         Text(status, color = Muted, style = MaterialTheme.typography.bodySmall)
-        Text("Export creates a new JPEG copy. The imported original is never overwritten. For phone memory safety, editing is capped to 3072 px on the longest edge.",
+        Text("Export creates a new JPEG copy. The imported original is never overwritten. For phone memory safety, editing is capped to 2048 px on the longest edge.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
@@ -259,7 +274,7 @@ private fun decodePhotoForEditing(context: android.content.Context, uri: Uri): B
     context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
     var sample = 1
-    while (bounds.outWidth / sample > 3072 || bounds.outHeight / sample > 3072) sample *= 2
+    while (bounds.outWidth / sample > 2048 || bounds.outHeight / sample > 2048) sample *= 2
     val options = BitmapFactory.Options().apply {
         inSampleSize = sample
         inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -273,6 +288,9 @@ private fun renderPhotoEdit(
     saturation: Float,
     contrast: Float,
     warmth: Float,
+    highlights: Float,
+    shadows: Float,
+    sharpness: Float,
     overlayText: String,
     rotation: Int,
     cropRatio: String,
@@ -313,6 +331,19 @@ private fun renderPhotoEdit(
     Canvas(adjusted).drawBitmap(cropped, 0f, 0f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
         colorFilter = ColorMatrixColorFilter(color)
     })
+    if (highlights != 0f || shadows != 0f || sharpness != 0f) {
+        val pixels = IntArray(adjusted.width * adjusted.height)
+        adjusted.getPixels(pixels, 0, adjusted.width, 0, 0, adjusted.width, adjusted.height)
+        val adjustedPixels = adjustPhotoPixels(
+            pixels = pixels,
+            width = adjusted.width,
+            height = adjusted.height,
+            highlights = highlights,
+            shadows = shadows,
+            sharpness = sharpness
+        )
+        adjusted.setPixels(adjustedPixels, 0, adjusted.width, 0, 0, adjusted.width, adjusted.height)
+    }
     if (cropped !== source && !cropped.isRecycled) cropped.recycle()
     val rotated = if (rotation % 360 == 0) adjusted else {
         val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
