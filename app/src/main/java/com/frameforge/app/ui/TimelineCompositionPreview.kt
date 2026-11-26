@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.text.SpannableString
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,8 +54,12 @@ import com.frameforge.app.data.*
 import com.frameforge.app.ui.theme.Line
 import com.frameforge.app.ui.theme.Muted
 import com.frameforge.app.ui.theme.SurfaceWhite
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 
 data class ExportConfiguration(
     val resolution: String = "1080p",
@@ -87,6 +93,34 @@ fun TimelineCompositionPreview(
     var exportCancelled by remember { mutableStateOf(false) }
     var previewPositionMs by remember { mutableStateOf(0L) }
     var previewDurationMs by remember { mutableStateOf(0L) }
+    val saveScope = rememberCoroutineScope()
+    var saveStatus by remember { mutableStateOf<String?>(null) }
+    var pendingSaveFile by remember { mutableStateOf<File?>(null) }
+    val saveExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("video/mp4")
+    ) { destinationUri ->
+        val source = pendingSaveFile
+        pendingSaveFile = null
+        if (destinationUri != null && source != null) {
+            saveScope.launch {
+                saveStatus = "Saving copy…"
+                try {
+                    val copiedBytes = withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(destinationUri, "w")?.use { output ->
+                            copyExportFile(source, output)
+                        } ?: throw IOException("The selected destination could not be opened.")
+                    }
+                    saveStatus = "Saved to selected location (" +
+                        (copiedBytes / 1024 / 1024).coerceAtLeast(1) + " MB)"
+                } catch (failure: Exception) {
+                    withContext(Dispatchers.IO) {
+                        runCatching { context.contentResolver.delete(destinationUri, null, null) }
+                    }
+                    saveStatus = "Save failed: " + (failure.message ?: "Unable to copy the exported video.")
+                }
+            }
+        }
+    }
 
     DisposableEffect(player) {
         onDispose {
@@ -238,6 +272,7 @@ fun TimelineCompositionPreview(
                             ).apply { mkdirs() }
                             val output = File(outputDirectory, "FRAMEFORGE_${exportConfig.resolution}_${System.currentTimeMillis()}.mp4")
                             exportFile = null
+                            saveStatus = null
                             exportCancelled = false
                             exportError = null
                             exportProgress = 0
@@ -345,6 +380,29 @@ fun TimelineCompositionPreview(
                             Text("Share")
                         }
                     }
+                }
+
+                if (exportFile?.exists() == true) {
+                    OutlinedButton(
+                        onClick = {
+                            exportFile?.let { source ->
+                                pendingSaveFile = source
+                                saveExportLauncher.launch(source.name)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Save, null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Save copy to device…")
+                    }
+                }
+                saveStatus?.let { status ->
+                    Text(
+                        status,
+                        color = if (status.startsWith("Save failed")) MaterialTheme.colorScheme.error else Muted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
 
                 if (exportTransformer != null) {
