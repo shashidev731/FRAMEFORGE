@@ -527,6 +527,9 @@ private fun buildTimelineComposition(
 
     if (sequences.isEmpty()) return null
     val builder = MediaComposition.Builder(sequences)
+    // Visual sequence order matches the sorted visualTracks list; the
+    // compositor positions overlay lanes as picture-in-picture layers.
+    builder.setVideoCompositorSettings(TimelineVideoCompositorSettings(visualTracks))
     if (exportConfiguration != null) {
         val outputSpec = exportOutputSpec(exportConfiguration)
         val videoEffects: List<Effect> = listOf(

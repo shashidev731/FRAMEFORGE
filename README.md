@@ -11,6 +11,7 @@ Package: `com.frameforge.app`
 ### 🎬 Multitrack Video Editor
 - **AndroidX Media3 Composition Engine**: Live preview synchronized with a timeline playhead using `CompositionPlayer` and `PlayerView`.
 - **Multitrack Timeline**: Primary visual sequence (video and photos) + concurrent audio mixing across multiple tracks (BGM, voiceover, sound effects).
+- **Visual overlay tracks**: Additional visual lanes are composited as positioned picture-in-picture layers in the same preview/export composition; audio lanes remain independently mixed.
 - **Precision Trimming & Splitting**: Non-destructive start and end trimming, playhead splitting, and track reassignment.
 - **Speed Ramping**: Adjust playback speed from `0.5x` (slow-motion) to `2.0x` (fast-motion) with automatic timeline duration scaling.
 - **Visual Filters & Effects**: Built-in shaders for B&W (grayscale), Invert, High Contrast, Brightness boost, Warmth, Cool, and Sepia.
