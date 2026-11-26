@@ -21,8 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -37,14 +35,14 @@ fun AiStudioScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val preferences = remember(context) {
-        context.getSharedPreferences("frameforge_ai_preferences", Context.MODE_PRIVATE)
-    }
-
     var selectedTool by remember { mutableStateOf("Scene Detection") }
-    var apiKey by remember { mutableStateOf(preferences.getString("gemini_api_key", "") ?: "") }
-    var showApiKey by remember { mutableStateOf(false) }
-    var apiKeyStatus by remember { mutableStateOf(if (apiKey.isBlank()) "No API key configured" else "Configured") }
+    LaunchedEffect(context) {
+        // Remove the legacy plaintext key. This build has no cloud provider integration.
+        context.getSharedPreferences("frameforge_ai_preferences", Context.MODE_PRIVATE)
+            .edit()
+            .remove("gemini_api_key")
+            .apply()
+    }
 
     // Scene Detection State
     var videoUri by remember { mutableStateOf<Uri?>(null) }
@@ -98,12 +96,12 @@ fun AiStudioScreen(
                         }
                     }
                     Column {
-                        Text("FRAMEFORGE AI STUDIO", color = AccentSoft, style = MaterialTheme.typography.labelSmall)
-                        Text("Intelligent Creative Assistant", color = SurfaceWhite, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("FRAMEFORGE CREATIVE TOOLS", color = AccentSoft, style = MaterialTheme.typography.labelSmall)
+                        Text("On-device analysis tools", color = SurfaceWhite, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
                 }
                 Text(
-                    "On-device heuristics and secure API integrations. External models require configuration; AI edits always ask for your explicit approval.",
+                    "Only transparent on-device analysis tools are available in this build. Cloud AI and speech features stay disabled until real integrations and secure credential handling are implemented.",
                     color = SurfaceWhite.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -128,9 +126,9 @@ fun AiStudioScreen(
             "Scene Detection" -> {
                 Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
                     Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Smart Scene Detection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Local Scene-Change Hints", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Analyzes video frames on-device using frame variance to detect cut points and shot transitions.",
+                            "Samples one frame per second and compares average luminance. This lightweight heuristic can flag abrupt brightness changes, but may miss cuts between similarly lit shots.",
                             color = Muted,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -206,9 +204,9 @@ fun AiStudioScreen(
             "Smart Enhance" -> {
                 Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
                     Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("AI Image & Color Analysis", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Local Photo Analysis", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Evaluates image luminosity, dynamic range, and warmth distribution to compute optimal editing adjustments.",
+                            "Uses image luminance, dynamic range, and channel warmth heuristics to suggest starting values. This is not a learned or generative AI model.",
                             color = Muted,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -242,7 +240,7 @@ fun AiStudioScreen(
                                 if (isAnalyzingPhoto) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                 else Icon(Icons.Default.AutoFixHigh, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text(if (isAnalyzingPhoto) "Analyzing histogram…" else "Compute AI Adjustments")
+                                Text(if (isAnalyzingPhoto) "Analyzing histogram…" else "Analyze image levels")
                             }
 
                             if (enhancementRecommendation != null) {
@@ -253,7 +251,7 @@ fun AiStudioScreen(
                                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                                 ) {
                                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("AI Recommended Adjustments:", fontWeight = FontWeight.Bold, color = Accent)
+                                        Text("Suggested starting adjustments:", fontWeight = FontWeight.Bold, color = Accent)
                                         Text(enhancementRecommendation!!, style = MaterialTheme.typography.bodyMedium)
                                         Text("Adjustments can be fine-tuned non-destructively in Photo Studio.", color = Muted, style = MaterialTheme.typography.labelSmall)
                                     }
@@ -269,38 +267,18 @@ fun AiStudioScreen(
                     Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Speech-to-Text & Subtitles", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Cloud transcription requires an external AI provider (Gemini 1.5). Keys are kept strictly on your local device.",
+                            "Automatic transcription is not available in this build. No provider is connected, and FRAMEFORGE does not request or store an API key. This feature will be enabled only after a real transcription integration is implemented and validated.",
                             color = Muted,
                             style = MaterialTheme.typography.bodySmall
                         )
-
-                        if (apiKey.isBlank()) {
-                            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)) {
-                                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.KeyOff, null, tint = MaterialTheme.colorScheme.error)
-                                    Text(
-                                        "Gemini API key is not configured. Go to the 'Settings' tab to add your key.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
-                            }
-                        } else {
-                            Surface(shape = RoundedCornerShape(12.dp), color = AccentSoft) {
-                                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.CheckCircle, null, tint = Accent)
-                                    Text("Provider connected: Gemini 1.5 Flash", style = MaterialTheme.typography.bodySmall, color = Ink)
-                                }
-                            }
-
-                            Text("Select an audio track or video clip to generate automatic subtitles.", color = Muted, style = MaterialTheme.typography.bodySmall)
-                            OutlinedButton(
-                                onClick = { /* Hooked to timeline audio */ },
-                                modifier = Modifier.fillMaxWidth()
+                        Surface(shape = RoundedCornerShape(12.dp), color = Canvas, border = BorderStroke(1.dp, Line)) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Subtitles, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Generate Timeline Captions")
+                                Icon(Icons.Default.Info, null, tint = Muted)
+                                Text("Unavailable — no caption-generation action is exposed.", color = Muted, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
@@ -310,48 +288,12 @@ fun AiStudioScreen(
             "Settings" -> {
                 Surface(shape = RoundedCornerShape(18.dp), color = SurfaceWhite, border = BorderStroke(1.dp, Line)) {
                     Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("AI Provider Configuration", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("Configure external LLM and vision APIs. Credentials are saved only in Android private storage.", color = Muted, style = MaterialTheme.typography.bodySmall)
-
-                        OutlinedTextField(
-                            value = apiKey,
-                            onValueChange = { apiKey = it },
-                            label = { Text("Gemini API Key") },
-                            placeholder = { Text("AIzaSy…") },
-                            visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
-                            trailingIcon = {
-                                IconButton(onClick = { showApiKey = !showApiKey }) {
-                                    Icon(if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility, "Toggle key visibility")
-                                }
-                            },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                        Text("Provider Availability", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Cloud AI, speech transcription, and generative editing are not connected in this build. No provider credentials are collected or stored. A provider will be enabled only after authenticated requests, secure secret handling, consent, error handling, and automated tests are in place.",
+                            color = Muted,
+                            style = MaterialTheme.typography.bodySmall
                         )
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    preferences.edit().putString("gemini_api_key", apiKey.trim()).apply()
-                                    apiKeyStatus = if (apiKey.isNotBlank()) "Saved successfully" else "API key cleared"
-                                }
-                            ) {
-                                Text("Save Key")
-                            }
-
-                            if (apiKey.isNotBlank()) {
-                                OutlinedButton(
-                                    onClick = {
-                                        apiKey = ""
-                                        preferences.edit().remove("gemini_api_key").apply()
-                                        apiKeyStatus = "API key cleared"
-                                    }
-                                ) {
-                                    Text("Clear")
-                                }
-                            }
-                        }
-
-                        Text("Status: $apiKeyStatus", color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -359,7 +301,7 @@ fun AiStudioScreen(
     }
 }
 
-// On-device Frame Luminance & Variance Scene Detection
+// Local average-luminance scene-change heuristic
 private fun detectSceneCuts(
     context: Context,
     videoUri: Uri,
@@ -381,11 +323,8 @@ private fun detectSceneCuts(
             val frame = retriever.getFrameAtTime(timeMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
             if (frame != null) {
                 val luminance = calculateAverageLuminance(frame)
-                if (prevLuminance >= 0f) {
-                    val delta = Math.abs(luminance - prevLuminance)
-                    if (delta > 35f) { // Significant luminance shift indicates scene boundary
-                        cuts.add(SceneCut(timeMs, (delta / 100f).coerceIn(0.5f, 1.0f)))
-                    }
+                sceneChangeConfidence(prevLuminance, luminance)?.let { confidence ->
+                    cuts.add(SceneCut(timeMs, confidence))
                 }
                 prevLuminance = luminance
                 if (!frame.isRecycled) frame.recycle()
@@ -421,23 +360,41 @@ private fun calculateAverageLuminance(bitmap: Bitmap): Float {
 
 private fun analyzePhotoLuminance(context: Context, uri: Uri): String {
     return runCatching {
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            val bitmap = android.graphics.BitmapFactory.decodeStream(stream) ?: return "Unable to decode image."
-            val avgLuma = calculateAverageLuminance(bitmap)
+        val bitmap = decodePhotoForAnalysis(context, uri)
+            ?: return@runCatching "Unable to decode image."
+        val avgLuma = try {
+            calculateAverageLuminance(bitmap)
+        } finally {
             if (!bitmap.isRecycled) bitmap.recycle()
+        }
 
-            val exposureAdvise = when {
-                avgLuma < 70f -> "Low exposure detected (+0.6 EV recommended)"
-                avgLuma > 190f -> "High highlights detected (-0.4 EV recommended)"
-                else -> "Balanced exposure (0.0 EV recommended)"
-            }
+        val exposureAdvise = when {
+            avgLuma < 70f -> "Low exposure detected (+0.6 EV recommended)"
+            avgLuma > 190f -> "High highlights detected (-0.4 EV recommended)"
+            else -> "Balanced exposure (0.0 EV recommended)"
+        }
 
-            val contrastAdvise = when {
-                avgLuma in 80f..170f -> "Moderate dynamic range (+1.1x contrast recommended)"
-                else -> "Standard contrast (+1.0x recommended)"
-            }
+        val contrastAdvise = when {
+            avgLuma in 80f..170f -> "Moderate dynamic range (+1.1x contrast recommended)"
+            else -> "Standard contrast (+1.0x recommended)"
+        }
 
-            "• $exposureAdvise\n• $contrastAdvise\n• Saturation: +1.1x for vivid color clarity\n• Sharpness: Standard"
-        } ?: "Could not open selected photo."
+        "• $exposureAdvise\n• $contrastAdvise\n• Saturation: +1.1x for vivid color clarity\n• Sharpness: Standard"
     }.getOrDefault("Analysis failed.")
+}
+
+private fun decodePhotoForAnalysis(context: Context, uri: Uri): Bitmap? {
+    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use { stream ->
+        android.graphics.BitmapFactory.decodeStream(stream, null, bounds)
+    }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+    val options = android.graphics.BitmapFactory.Options().apply {
+        inSampleSize = photoAnalysisSampleSize(bounds.outWidth, bounds.outHeight)
+        inPreferredConfig = Bitmap.Config.RGB_565
+    }
+    return context.contentResolver.openInputStream(uri)?.use { stream ->
+        android.graphics.BitmapFactory.decodeStream(stream, null, options)
+    }
 }
