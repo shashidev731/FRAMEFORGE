@@ -446,7 +446,11 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                     clips.groupBy { it.trackIndex }.toSortedMap().forEach { (trackIndex, trackClips) ->
                         item(key = "track-header-$trackIndex") {
                             Text(
-                                if (trackIndex == 1) "AUDIO TRACK" else if (trackIndex == 0) "VIDEO / IMAGE TRACK" else "OVERLAY TRACK $trackIndex",
+                                when {
+                                    trackIndex == 0 -> "MAIN VIDEO TRACK"
+                                    trackIndex in 1..LAST_AUDIO_TRACK_INDEX -> "AUDIO TRACK $trackIndex"
+                                    else -> "VISUAL OVERLAY TRACK ${trackIndex - FIRST_OVERLAY_TRACK_INDEX + 1}"
+                                },
                                 color = Accent, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
                             )
@@ -467,7 +471,7 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
             }
         }
         Text(
-            "Clips are saved per project. Preview and MP4 export support the primary visual sequence and multiple concurrent audio tracks, including trims, gaps, and visual speed changes. Separate visual overlay tracks and transitions are not available yet.",
+            "Clips are saved per project. Preview and MP4 export compose the main visual track with separate visual overlay tracks and concurrent audio tracks. Crossfade transitions are not supported yet.",
             color = Muted, style = MaterialTheme.typography.bodySmall
         )
     }
@@ -597,10 +601,10 @@ private fun TimelineClipStrip(
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 val trackScroll = rememberScrollState()
                 Text(
-                    when (trackIndex) {
-                        0 -> "VIDEO / IMAGE"
-                        1 -> "AUDIO"
-                        else -> "OVERLAY $trackIndex"
+                    when {
+                        trackIndex == 0 -> "MAIN VISUAL"
+                        trackIndex in 1..LAST_AUDIO_TRACK_INDEX -> "AUDIO $trackIndex"
+                        else -> "VISUAL OVERLAY ${trackIndex - FIRST_OVERLAY_TRACK_INDEX + 1}"
                     },
                     color = Accent, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold
                 )

@@ -27,6 +27,7 @@ import androidx.media3.common.audio.GainProcessor
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Brightness
+import androidx.media3.effect.FrameDropEffect
 import androidx.media3.effect.Contrast
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
@@ -37,6 +38,7 @@ import androidx.media3.effect.SpeedChangeEffect
 import androidx.media3.effect.TextOverlay
 import androidx.media3.transformer.Composition as MediaComposition
 import androidx.media3.transformer.CompositionPlayer
+import androidx.media3.transformer.DefaultEncoderFactory
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.Effects
@@ -44,6 +46,7 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import androidx.media3.transformer.VideoEncoderSettings
 import androidx.media3.ui.PlayerView
 import com.frameforge.app.data.*
 import com.frameforge.app.ui.theme.Line
@@ -131,9 +134,13 @@ fun TimelineCompositionPreview(
         }
     }
 
-    val visualCount = clips.count { it.trackIndex == 0 && it.durationMs > 0L }
-    val audioCount = clips.count { it.trackIndex >= 1 && it.mimeType.startsWith("audio/") }
-    val audioTracksCount = clips.filter { it.trackIndex >= 1 && it.mimeType.startsWith("audio/") }.map { it.trackIndex }.distinct().size
+    val visualCount = clips.count {
+        isVisualTimelineClip(it) && (it.trackIndex == 0 || it.trackIndex >= FIRST_OVERLAY_TRACK_INDEX) && it.durationMs > 0L
+    }
+    val audioCount = clips.count {
+        isAudioTimelineClip(it) && it.trackIndex in 1..LAST_AUDIO_TRACK_INDEX
+    }
+    val audioTracksCount = groupAudioTimelineTracks(clips).size
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -216,6 +223,15 @@ fun TimelineCompositionPreview(
                     Button(
                         enabled = exportTransformer == null,
                         onClick = {
+                            val outputSpec = exportOutputSpec(exportConfig)
+                            val exportCompositionResult = runCatching { buildTimelineComposition(clips, exportConfig) }
+                            val exportComposition = exportCompositionResult.getOrNull()
+                            if (exportCompositionResult.isFailure || exportComposition == null) {
+                                exportError = exportCompositionResult.exceptionOrNull()?.message
+                                    ?: "The timeline could not be prepared for the selected export settings."
+                                exportStatus = "Export failed"
+                                return@Button
+                            }
                             val outputDirectory = File(
                                 context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir,
                                 "FRAMEFORGE"
@@ -229,7 +245,15 @@ fun TimelineCompositionPreview(
                             activeOutputFile = output
 
                             val videoMime = if (exportConfig.codec == "H.265") MimeTypes.VIDEO_H265 else MimeTypes.VIDEO_H264
+                            val encoderFactory = DefaultEncoderFactory.Builder(context)
+                                .setRequestedVideoEncoderSettings(
+                                    VideoEncoderSettings.Builder()
+                                        .setBitrate(outputSpec.videoBitrateBps)
+                                        .build()
+                                )
+                                .build()
                             val transformerBuilder = Transformer.Builder(context)
+                                .setEncoderFactory(encoderFactory)
                                 .setVideoMimeType(videoMime)
                                 .addListener(object : Transformer.Listener {
                                     override fun onCompleted(comp: MediaComposition, exportResult: ExportResult) {
@@ -273,8 +297,8 @@ fun TimelineCompositionPreview(
 
                             val transformer = transformerBuilder.build()
                             exportTransformer = transformer
-                            runCatching { transformer.start(composition, output.absolutePath) }
-                                .onSuccess { exportStatus = "Exporting MP4 (${exportConfig.resolution} ${exportConfig.codec})…" }
+                            runCatching { transformer.start(exportComposition, output.absolutePath) }
+                                .onSuccess { exportStatus = "Exporting MP4 (${exportConfig.resolution} ${exportConfig.frameRate}fps ${exportConfig.codec} ${exportConfig.quality})…" }
                                 .onFailure {
                                     output.delete()
                                     activeOutputFile = null
@@ -369,6 +393,11 @@ fun TimelineCompositionPreview(
                             )
                         }
                     }
+                    Text(
+                        "The selected rate drops source frames when needed. It does not create new frames when the source is slower.",
+                        color = Muted,
+                        style = MaterialTheme.typography.labelSmall
+                    )
 
                     Text("Video Codec", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -391,6 +420,11 @@ fun TimelineCompositionPreview(
                             )
                         }
                     }
+                    Text(
+                        "Resolution and bitrate are requested from the device encoder. Unsupported profiles may fall back to a lower output size.",
+                        color = Muted,
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
             },
             confirmButton = {
@@ -408,7 +442,10 @@ private const val VIDEO_TRACK_TYPE = 2
 
 @UnstableApi
 @ExperimentalApi
-private fun buildTimelineComposition(clips: List<TimelineClipEntity>): MediaComposition? {
+private fun buildTimelineComposition(
+    clips: List<TimelineClipEntity>,
+    exportConfiguration: ExportConfiguration? = null
+): MediaComposition? {
     val visualTracks = groupVisualTimelineTracks(clips)
     val audioTracks = groupAudioTimelineTracks(clips)
 
@@ -430,7 +467,17 @@ private fun buildTimelineComposition(clips: List<TimelineClipEntity>): MediaComp
         }
     }
 
-    return sequences.takeIf { it.isNotEmpty() }?.let { MediaComposition.Builder(it).build() }
+    if (sequences.isEmpty()) return null
+    val builder = MediaComposition.Builder(sequences)
+    if (exportConfiguration != null) {
+        val outputSpec = exportOutputSpec(exportConfiguration)
+        val videoEffects: List<Effect> = listOf(
+            Presentation.createForShortSide(outputSpec.shortSidePx),
+            FrameDropEffect.createDefaultFrameDropEffect(outputSpec.targetFrameRate.toFloat())
+        )
+        builder.setEffects(Effects(emptyList<AudioProcessor>(), videoEffects))
+    }
+    return builder.build()
 }
 
 @UnstableApi
