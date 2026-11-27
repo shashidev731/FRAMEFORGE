@@ -135,9 +135,11 @@ fun TimelineCompositionPreview(
 
     LaunchedEffect(exportWorkInfo?.id, exportWorkInfo?.state) {
         if (exportWorkInfo?.state == androidx.work.WorkInfo.State.CANCELLED) {
-            val requestPath = exportWorkInfo?.inputData?.getString(TimelineExportWorker.KEY_REQUEST_PATH)
-            if (requestPath != null) {
-                withContext(Dispatchers.IO) { File(requestPath).delete() }
+            val cancelledWorkId = exportWorkInfo?.id?.toString()
+            if (cancelledWorkId != null) {
+                withContext(Dispatchers.IO) {
+                    TimelineExportJobMarker.cleanupCancelled(context.filesDir, cancelledWorkId)
+                }
             }
         }
     }
@@ -331,19 +333,27 @@ fun TimelineCompositionPreview(
                             saveStatus = null
                             isQueueingExport = true
                             saveScope.launch {
+                                var queuedWorkId: String? = null
                                 try {
                                     withContext(Dispatchers.IO) {
-                                        requestFile.parentFile?.mkdirs()
-                                        requestFile.writeText(TimelineExportRequestCodec.encode(request), Charsets.UTF_8)
+                                        val requestDirectory = requestFile.parentFile
+                                            ?: throw IOException("The export request folder is unavailable.")
+                                        if (!requestDirectory.exists() && !requestDirectory.mkdirs()) {
+                                            throw IOException("The export request folder could not be created.")
+                                        }
+                                        requestFile.writeText(
+                                            TimelineExportRequestCodec.encode(request),
+                                            Charsets.UTF_8
+                                        )
                                     }
                                     val workRequest = OneTimeWorkRequestBuilder<TimelineExportWorker>()
                                         .setInputData(workDataOf(TimelineExportWorker.KEY_REQUEST_PATH to requestFile.absolutePath))
                                         .setConstraints(Constraints.Builder().setRequiresStorageNotLow(true).build())
                                         .addTag(TimelineExportWorker.TAG)
                                         .build()
+                                    queuedWorkId = workRequest.id.toString()
                                     withContext(Dispatchers.IO) {
-                                        File(context.filesDir, "export-jobs/active-work-id.txt")
-                                            .writeText(workRequest.id.toString())
+                                        TimelineExportJobMarker.persist(context.filesDir, workRequest.id, requestFile)
                                     }
                                     exportWorkId = workRequest.id.toString()
                                     workManager.enqueueUniqueWork(
@@ -352,7 +362,12 @@ fun TimelineCompositionPreview(
                                         workRequest
                                     )
                                 } catch (failure: Exception) {
-                                    requestFile.delete()
+                                    withContext(Dispatchers.IO) {
+                                        requestFile.delete()
+                                        queuedWorkId?.let {
+                                            TimelineExportJobMarker.cleanupCancelled(context.filesDir, it)
+                                        }
+                                    }
                                     exportStartError = failure.message ?: "Unable to queue the export."
                                 } finally {
                                     isQueueingExport = false
