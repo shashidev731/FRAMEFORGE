@@ -92,60 +92,9 @@ private val MIGRATION_9_10 = object : Migration(9, 10) {
 private val MIGRATION_10_11 = object : Migration(10, 11) {
     override fun migrate(database: SupportSQLiteDatabase) {
         // Reserve track 0 for the main visual sequence, 1..99 for audio,
-        // and 100+ for visual overlays. Earlier versions allowed mixed kinds.
-        database.execSQL("""
-            UPDATE timeline_clips
-            SET trackIndex = trackIndex + 99
-            WHERE trackIndex BETWEEN 1 AND 99
-              AND (lower(mimeType) LIKE 'video/%' OR lower(mimeType) LIKE 'image/%')
-        """.trimIndent())
-        database.execSQL("""
-            UPDATE timeline_clips AS current
-            SET trackIndex = (
-                SELECT COALESCE(MAX(other.trackIndex), 0) + 1
-                FROM timeline_clips AS other
-                WHERE other.projectId = current.projectId
-                  AND lower(other.mimeType) LIKE 'audio/%'
-                  AND other.trackIndex BETWEEN 1 AND 99
-            )
-            WHERE current.trackIndex = 0
-              AND lower(current.mimeType) LIKE 'audio/%'
-        """.trimIndent())
-        database.execSQL("""
-            UPDATE timeline_clips AS current
-            SET timelineStartMs = MAX(COALESCE(current.gapBeforeMs, 0), 0) + COALESCE((
-                SELECT SUM(
-                    MAX(COALESCE(previous.gapBeforeMs, 0), 0)
-                    + CAST((
-                        MAX(COALESCE(previous.trimEndMs, previous.durationMs) - previous.trimStartMs, 0) * 1.0
-                        / CASE
-                            WHEN lower(previous.mimeType) LIKE 'audio/%' THEN 1.0
-                            WHEN previous.speed >= 0.25 AND previous.speed <= 4.0 THEN previous.speed
-                            ELSE 1.0
-                          END
-                    ) AS INTEGER)
-                    + CASE WHEN (
-                        MAX(COALESCE(previous.trimEndMs, previous.durationMs) - previous.trimStartMs, 0) * 1.0
-                        / CASE
-                            WHEN lower(previous.mimeType) LIKE 'audio/%' THEN 1.0
-                            WHEN previous.speed >= 0.25 AND previous.speed <= 4.0 THEN previous.speed
-                            ELSE 1.0
-                          END
-                    ) > CAST((
-                        MAX(COALESCE(previous.trimEndMs, previous.durationMs) - previous.trimStartMs, 0) * 1.0
-                        / CASE
-                            WHEN lower(previous.mimeType) LIKE 'audio/%' THEN 1.0
-                            WHEN previous.speed >= 0.25 AND previous.speed <= 4.0 THEN previous.speed
-                            ELSE 1.0
-                          END
-                    ) AS INTEGER) THEN 1 ELSE 0 END
-                )
-                FROM timeline_clips AS previous
-                WHERE previous.projectId = current.projectId
-                  AND previous.trackIndex = current.trackIndex
-                  AND previous.position < current.position
-            ), 0)
-        """.trimIndent())
+        // and 100+ for visual overlays. Use legacy-compatible UPDATE syntax:
+        // Android versions supported by minSdk 26 may ship SQLite older than 3.33.
+        TimelineTrackMigrationSql.statements.forEach(database::execSQL)
     }
 }
 

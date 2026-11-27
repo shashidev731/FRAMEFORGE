@@ -7,6 +7,12 @@ import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
+internal const val GENERAL_REDO_BRANCH_DELETE_SQL =
+    "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 0"
+
+internal const val TIMELINE_REDO_BRANCH_DELETE_SQL =
+    "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'timeline_snapshot' AND isApplied = 0"
+
 @Dao
 interface EditOperationDao {
     @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' ORDER BY sequence ASC")
@@ -27,7 +33,7 @@ interface EditOperationDao {
     suspend fun setApplied(operationId: String, applied: Boolean)
 
 
-    @Query("DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'timeline_snapshot' AND isApplied = 0")
+    @Query(TIMELINE_REDO_BRANCH_DELETE_SQL)
     suspend fun discardTimelineRedo(projectId: String)
 
 
@@ -47,7 +53,7 @@ interface EditOperationDao {
 
 
     suspend fun appendTimelineSnapshot(projectId: String, payload: String, operationId: String, createdAt: Long) {
-        discardRedoBranch(projectId)
+        discardTimelineRedo(projectId)
         val sequence = nextSequence(projectId)
         insert(EditOperationEntity(operationId, projectId, sequence, "timeline_snapshot", payload, createdAt))
     }
@@ -64,7 +70,7 @@ interface EditOperationDao {
     @Query("UPDATE edit_operations SET isApplied = 1 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 0 ORDER BY sequence ASC LIMIT 1)")
     suspend fun redoNext(projectId: String): Int
 
-    @Query("DELETE FROM edit_operations WHERE projectId = :projectId AND isApplied = 0")
+    @Query(GENERAL_REDO_BRANCH_DELETE_SQL)
     suspend fun discardRedoBranch(projectId: String)
 
     @Query("SELECT COUNT(*) FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 1")
