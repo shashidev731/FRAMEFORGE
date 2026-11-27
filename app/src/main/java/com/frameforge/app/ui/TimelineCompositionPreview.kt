@@ -504,11 +504,13 @@ private fun buildTimelineComposition(
     clips: List<TimelineClipEntity>,
     exportConfiguration: ExportConfiguration? = null
 ): MediaComposition? {
-    val visualTracks = groupVisualTimelineTracks(clips)
+    // Reuse this filtered order for both Media3 sequences and compositor input IDs.
+    // Tracks with no visible frames must not shift the sequence-to-track mapping.
+    val visualTracks = composableVisualTimelineTracks(clips)
     val audioTracks = groupAudioTimelineTracks(clips)
 
     // An audio-only project has no video composition to preview or export.
-    if (visualTracks.none { track -> track.clips.any { effectiveClipDurationMs(it) > 0L } }) return null
+    if (visualTracks.isEmpty()) return null
 
     val sequences = buildList {
         // The active primary track (track 0 when present, otherwise the first active visual track)

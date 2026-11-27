@@ -1,18 +1,20 @@
 package com.frameforge.app.ui
 
+import com.frameforge.app.data.TimelineTrackGroup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TimelineVideoCompositorSettingsTest {
+    private fun track(index: Int) = TimelineTrackGroup(index, emptyList())
+
     @Test
-    fun overlayTracksUseDistinctPictureInPictureCorners() {
-        val topRight = timelineOverlayPlacement(100)!!
-        val bottomRight = timelineOverlayPlacement(101)!!
-        val bottomLeft = timelineOverlayPlacement(102)!!
-        val topLeft = timelineOverlayPlacement(103)!!
+    fun overlaySequencesUseDistinctPictureInPictureCorners() {
+        val topRight = timelineOverlayPlacement(0)!!
+        val bottomRight = timelineOverlayPlacement(1)!!
+        val bottomLeft = timelineOverlayPlacement(2)!!
+        val topLeft = timelineOverlayPlacement(3)!!
 
         assertEquals(1f, topRight.overlayAnchorX, 0f)
         assertEquals(1f, topRight.overlayAnchorY, 0f)
@@ -27,13 +29,22 @@ class TimelineVideoCompositorSettingsTest {
     }
 
     @Test
-    fun mainTrackRemainsFullFrame() {
-        assertNull(timelineOverlayPlacement(0))
+    fun primaryTrackIsNeverScaledAsAnOverlay() {
+        assertNull(timelineOverlayPlacement(-1))
+        assertEquals(0, timelineBaseVisualInputIndex(listOf(track(0), track(100))))
+        assertEquals(1, timelineBaseVisualInputIndex(listOf(track(100), track(0))))
     }
 
     @Test
-    fun unsupportedTrackIndicesWrapThroughAvailableCorners() {
-        assertEquals(timelineOverlayPlacement(100), timelineOverlayPlacement(104))
-        assertTrue(timelineOverlayPlacement(103)!!.backgroundAnchorX < 0f)
+    fun firstActiveOverlayBecomesFullFrameBaseWhenPrimaryTrackIsMissing() {
+        assertEquals(0, timelineBaseVisualInputIndex(listOf(track(100), track(101))))
+        assertEquals(-1, timelineBaseVisualInputIndex(emptyList()))
+    }
+
+    @Test
+    fun overlayPositionsAreStableByOrdinalAndRepeatAfterFourSlots() {
+        assertNotEquals(timelineOverlayPlacement(0), timelineOverlayPlacement(1))
+        assertEquals(timelineOverlayPlacement(0), timelineOverlayPlacement(4))
+        assertEquals(timelineOverlayPlacement(1), timelineOverlayPlacement(5))
     }
 }
