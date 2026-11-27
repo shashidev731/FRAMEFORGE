@@ -144,6 +144,31 @@ class TimelineVisualTrackCompositionTest {
     }
 
     @Test
+    fun compositionInputsExcludeVisualTracksWithNoRenderableDuration() {
+        val clips = listOf(
+            clip("emptyBase", 0, mimeType = "video/mp4").copy(durationMs = 0L, trimEndMs = 0L),
+            clip("emptyOverlay", 100, mimeType = "video/mp4").copy(trimStartMs = 2_000L, trimEndMs = 2_000L),
+            clip("activeOverlay", 102, mimeType = "image/png")
+        )
+
+        val tracks = composableVisualTimelineTracks(clips)
+
+        assertEquals(listOf(102), tracks.map { it.trackIndex })
+        assertEquals(listOf("activeOverlay"), tracks.single().clips.map { it.clipId })
+    }
+
+    @Test
+    fun activeOverlayCanBecomePrimaryCompositionInputWhenBaseHasNoFrames() {
+        val clips = listOf(
+            clip("emptyBase", 0, mimeType = "video/mp4").copy(durationMs = 0L, trimEndMs = 0L),
+            clip("firstActive", 100, mimeType = "image/png"),
+            clip("secondActive", 101, mimeType = "video/mp4")
+        )
+
+        assertEquals(listOf(100, 101), composableVisualTimelineTracks(clips).map { it.trackIndex })
+    }
+
+    @Test
     fun trackAssignmentRejectsCrossKindAndReservedIndices() {
         assertTrue(isTrackAssignmentAllowed("video/mp4", 0))
         assertTrue(isTrackAssignmentAllowed("image/png", 100))

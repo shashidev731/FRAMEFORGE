@@ -511,8 +511,8 @@ private fun buildTimelineComposition(
     if (visualTracks.none { track -> track.clips.any { effectiveClipDurationMs(it) > 0L } }) return null
 
     val sequences = buildList {
-        // Track 0 is the base visual sequence. Tracks 100+ are composited above
-        // it in ascending track order, while each sequence remains internally linear.
+        // The active primary track (track 0 when present, otherwise the first active visual track)
+        // is the base. Remaining visual sequences are composited above it in ascending order.
         visualTracks.forEach { track ->
             buildTimelineTrackSequence(track.clips, VIDEO_TRACK_TYPE, ::effectiveClipDurationMs)
                 ?.let(::add)

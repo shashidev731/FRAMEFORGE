@@ -82,6 +82,16 @@ internal fun groupVisualTimelineTracks(clips: List<TimelineClipEntity>): List<Ti
             TimelineTrackGroup(trackIndex, trackClips.sortedBy { it.timelineStartMs })
         }
 
+/**
+ * Returns only visual tracks that can contribute at least one frame to a composition.
+ * The returned order is stable and must be reused when creating Media3 sequences and
+ * configuring VideoCompositorSettings because its input IDs are positional.
+ */
+internal fun composableVisualTimelineTracks(clips: List<TimelineClipEntity>): List<TimelineTrackGroup> =
+    groupVisualTimelineTracks(clips).filter { track ->
+        track.clips.any { effectiveClipDurationMs(it) > 0L }
+    }
+
 internal fun groupAudioTimelineTracks(clips: List<TimelineClipEntity>): List<TimelineTrackGroup> =
     clips.asSequence()
         .filter { isAudioTimelineClip(it) && it.trackIndex in 1..LAST_AUDIO_TRACK_INDEX }
