@@ -95,6 +95,31 @@ private val MIGRATION_10_11 = object : Migration(10, 11) {
         // and 100+ for visual overlays. Use legacy-compatible UPDATE syntax:
         // Android versions supported by minSdk 26 may ship SQLite older than 3.33.
         TimelineTrackMigrationSql.statements.forEach(database::execSQL)
+
+        // Older versions could place audio clips on the primary track. Move every
+        // such clip for a project to one shared free audio track, not one track per row.
+        val legacyAudioProjects = database.query(
+            "SELECT DISTINCT projectId FROM timeline_clips WHERE trackIndex = 0 AND lower(mimeType) LIKE 'audio/%'"
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(cursor.getString(0))
+            }
+        }
+        legacyAudioProjects.forEach { projectId ->
+            val occupiedAudioTracks = database.query(
+                "SELECT trackIndex FROM timeline_clips WHERE projectId = ? AND lower(mimeType) LIKE 'audio/%' AND trackIndex BETWEEN 1 AND 99",
+                arrayOf<Any?>(projectId)
+            ).use { cursor ->
+                buildSet {
+                    while (cursor.moveToNext()) add(cursor.getInt(0))
+                }
+            }
+            val targetTrack = nextAvailableAudioTrack(occupiedAudioTracks)
+            database.execSQL(
+                "UPDATE timeline_clips SET trackIndex = ? WHERE projectId = ? AND trackIndex = 0 AND lower(mimeType) LIKE 'audio/%'",
+                arrayOf<Any?>(targetTrack, projectId)
+            )
+        }
     }
 }
 

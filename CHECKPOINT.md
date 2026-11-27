@@ -1,76 +1,75 @@
-# CHECKPOINT — FRAMEFORGE MASTER DEVELOPMENT CHECKPOINT
+# FRAMEFORGE — Verified Development Checkpoint
 
-- **Application**: FRAMEFORGE (`com.frameforge.app`)
-- **Repository**: `shashidev731/FRAMEFORGE`
-- **Branch**: `main`
-- **Baseline Git Commit**: `65fcd35`
-- **Milestones**: 0 through 10 fully implemented, tested, and verified.
-- **Build Status**:
-  - Debug APK: `:app:assembleDebug` SUCCESS (`app/build/outputs/apk/debug/app-debug.apk` — 22.7 MB)
-  - Release APK: `:app:assembleRelease` SUCCESS (`app/build/outputs/apk/release/app-release.apk` — 15.3 MB)
-  - Unit Tests: `:app:testDebugUnitTest` SUCCESS (25 actionable tasks executed, 100% pass)
+- **Application:** FRAMEFORGE (com.frameforge.app)
+- **Repository:** https://github.com/shashidev731/FRAMEFORGE
+- **Branch:** main
+- **Last fully CI-verified code baseline:** e874fa5ca41e0251d2738484fab661e877a4ad83 (CI run #246, success)
+- **Current update:** Adds a project-wide legacy audio-track allocation fix and this checkpoint/roadmap refresh. CI for the commit containing this update must be checked before it is marked verified.
+- **Completion:** Not 100% complete. Code coverage, CI verification, and physical-device verification are tracked separately.
 
----
+## 1. Latest verified CI and artifacts
 
-## 1. Feature Completion Matrix
+| Run | Commit | Result | Verified steps |
+|---|---|---|---|
+| [#244](https://github.com/shashidev731/FRAMEFORGE/actions/runs/45945907747) | cb12671a1400460f86084a5c0c76a11a2b072058 | Success | Debug build, lint, unit tests, release build, APK validation, debug/release artifact upload |
+| [#245](https://github.com/shashidev731/FRAMEFORGE/actions/runs/45946300367) | 57eda5832f4c31584d8d1fdcf9665c4fa61c5837 | Success | Debug build, lint, unit tests, release build, APK validation, artifact upload |
+| [#246](https://github.com/shashidev731/FRAMEFORGE/actions/runs/45946732384) | e874fa5ca41e0251d2738484fab661e877a4ad83 | Success | Debug build, lint, unit tests, release build, APK validation, artifact upload |
 
-| Feature Area | Status | Evidence & Details |
-|:---|:---:|:---|
-| **App Build & Launch** | **VERIFIED** | Gradle 8.11.1 + AGP 8.10.1 + Java 21 build `:app:assembleDebug` and `:app:assembleRelease` both succeed. |
-| **Material 3 Dark Theme** | **VERIFIED** | Custom charcoal/dark canvas (`#0F1115`), high-contrast text, accessible touch targets, and dynamic theme toggle in Settings. |
-| **Navigation & Dashboard** | **VERIFIED** | 7-tab core navigation (Home, Projects, Video, Photo, AI Studio, Library, Settings) with quick action cards and project badges. |
-| **Project CRUD & Metadata** | **VERIFIED** | Create, rename, duplicate, search, sort, and delete with confirmation. Resolution (720p, 1080p, 4K) & frame rate (24, 30, 60 fps) stored in Room. |
-| **Media Library & Import** | **VERIFIED** | Android Scoped Storage Document Picker for photo, video, and audio. Persistent Room references, media previews, audio player, and non-destructive removal. |
-| **Media3 Video Preview** | **VERIFIED** | AndroidX Media3 `CompositionPlayer` with `PlayerView`, timeline playhead scrubbing, live synchronization, and duration formatting. |
-| **Multitrack Timeline Engine**| **VERIFIED** | Primary visual track (video/image) + concurrent multi-track audio mixing (tracks 1, 2, 3...) built with `EditedMediaItemSequence`. |
-| **Clip Operations & Trimming**| **VERIFIED** | Non-destructive trim start/end, split at playhead, reorder in track, move across tracks, duplicate clip, and delete clip. |
-| **Persistent Undo & Redo** | **VERIFIED** | `TimelineSnapshotCodec` (TSH3) stores atomic before/after snapshots in Room SQLite table with backward compatibility for TSH1 and TSH2. |
-| **Audio Mixing & Fades** | **VERIFIED** | Per-clip volume slider (0%-100%), fade-in & fade-out controls rendered through Media3 `GainProcessor` and `DefaultGainProvider`. |
-| **Visual Effects & Speed** | **VERIFIED** | Rotation (0°, 90°, 180°, 270°), speed scaling (0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 2.0x), and visual filters (B&W, Invert, Vivid, Bright, Warm, Cool, Sepia). |
-| **Text & Subtitle Overlays** | **VERIFIED** | Per-clip text overlay inputs rendered in composition preview and export via Media3 `TextOverlay` and `OverlayEffect`. |
-| **Non-destructive Photo Studio** | **VERIFIED** | Real-time exposure, saturation, contrast, warmth, text overlay, preset filters (Normal, Vivid, B&W, Vintage, Cool, Warm, Moody), aspect crops (1:1, 4:5, 9:16, 16:9, 3:2), and JPEG export. |
-| **Export Engine** | **VERIFIED** | Media3 `Transformer` export with configurable resolution (720p/1080p/4K), frame rate (24/30/60 fps), codec (H.264/H.265), progress bar, cancellation, and system share sheet. |
-| **AI Studio** | **VERIFIED** | Real on-device frame variance scene cut detection, AI image luminance analysis with recommendation heuristics, secure Gemini API key storage, and clear offline/fallback states. |
-| **Automated Testing** | **VERIFIED** | Unit test suite covers crop geometry, timeline timing, audio fades, multitrack mixing, export configuration, and snapshot serialization. |
+Run #243 failed because the UI attempted to read WorkInfo.inputData, which WorkManager does not expose. Commit #244 replaced that access with a private, ownership-checked request-path marker; #244 then passed the full workflow.
 
----
+Latest fully verified artifacts are available from [CI run #246](https://github.com/shashidev731/FRAMEFORGE/actions/runs/45946732384):
+- frameforge-debug-apk — 21,843,707 bytes
+- frameforge-release-unsigned-apk — 14,728,088 bytes
+- frameforge-lint-report
 
-## 2. Files Changed & Added
+The release artifact is unsigned because no private release-signing secrets were configured. CI validated the APK outputs; this does not replace installation and playback testing on a physical Android device. Artifacts are scheduled to expire on 2027-02-25.
 
-- `app/build.gradle.kts`: Added `androidx.media3:media3-effect:1.9.0`, release `buildTypes` with ProGuard and signing config.
-- `app/proguard-rules.pro`: Production Proguard rules for Media3 and Room.
-- `gradle/wrapper/gradle-wrapper.properties`: Aligned with Gradle 8.11.1 for AGP 8.10.1 compatibility.
-- `local.properties`: Configured Android SDK directory.
-- `app/src/main/java/com/frameforge/app/ui/theme/Theme.kt`: Premium dark theme palette by default with dynamic light/dark toggling.
-- `app/src/main/java/com/frameforge/app/data/ProjectEntity.kt`: Added `resolution` and `frameRate` columns.
-- `app/src/main/java/com/frameforge/app/data/TimelineClipEntity.kt`: Added `speed`, `filterEffect`, `rotationDegrees`, and `textOverlay` columns.
-- `app/src/main/java/com/frameforge/app/data/FrameforgeDatabase.kt`: Bumped schema to version 10.
-- `app/src/main/java/com/frameforge/app/MainActivity.kt`: Added `MIGRATION_9_10` and persistent dark theme initialization.
-- `app/src/main/java/com/frameforge/app/data/TimelineClipDao.kt`: Added speed, filter effect, rotation, and text overlay DAO queries.
-- `app/src/main/java/com/frameforge/app/data/TimelineRepository.kt`: Exposed speed, filter effect, rotation, and text overlay operations with snapshot history.
-- `app/src/main/java/com/frameforge/app/data/TimelineSnapshotCodec.kt`: Upgraded codec to version `TSH3` with backward compatibility for `TSH1` and `TSH2`.
-- `app/src/main/java/com/frameforge/app/ui/TimelineCompositionPreview.kt`: Multitrack audio mixing across concurrent tracks, video effects, text overlays, and export configuration dialog.
-- `app/src/main/java/com/frameforge/app/ui/ProjectTimelinePanel.kt`: Added speed selectors, visual filter chips, rotation controls, text overlay inputs, and clip deletion.
-- `app/src/main/java/com/frameforge/app/ui/PhotoStudioScreen.kt`: Added filter presets (Vivid, B&W, Vintage, Cool, Warm, Moody), 16:9 and 3:2 crops, and horizontal scroll support.
-- `app/src/main/java/com/frameforge/app/ui/AiStudioScreen.kt`: New screen with on-device smart scene detection, luminance analysis, and Gemini API configuration.
-- `app/src/main/java/com/frameforge/app/ui/FrameforgeRoot.kt`: Integrated AI Studio, settings theme switch, cache cleaner, and project resolution/fps management.
-- `app/src/test/java/com/frameforge/app/data/TimelineSnapshotCodecTest.kt`: Added tests for TSH3 and legacy snapshot decoding.
-- `app/src/test/java/com/frameforge/app/ui/ExportConfigurationTest.kt`: Added tests for export resolution, fps, and quality configurations.
-- `app/src/test/java/com/frameforge/app/data/TimelineMultitrackMixingTest.kt`: Added tests for multi-track audio grouping, speed duration scaling, and independent track reflow.
+## 2. Feature status
 
----
+| Area | Current status | Evidence / limitation |
+|---|---|---|
+| Android foundation, Compose UI, navigation, dark theme | CI-VERIFIED | Debug and release builds pass in runs #244–#246. |
+| Project management | IMPLEMENTED | Room-backed create/open/rename/duplicate/delete and project metadata. Physical-device workflow not yet audited. |
+| Media import and library | IMPLEMENTED | Document picker, persisted URI access/private-copy handling, metadata and thumbnails. Device/provider edge cases still need testing. |
+| Timeline editing | IMPLEMENTED | Tracks, gaps, trims, split, move/reorder, duplicate/delete, clip timing and speed calculations have code and unit coverage. |
+| Visual track composition | IMPLEMENTED / PARTIAL | Main visual sequence plus picture-in-picture overlay sequences. Arbitrary freeform positioning and transitions are not complete. |
+| Timeline undo/redo | IMPLEMENTED | Room-persisted before/after snapshots restore timeline clip state; codec supports TSH1–TSH3. General photo/edit history is not yet a full state-restoring undo engine. |
+| Audio editing | IMPLEMENTED | Concurrent audio tracks, volume and fade-in/fade-out via Media3 gain processing. Physical audio-sync validation remains. |
+| Photo editing | IMPLEMENTED | Crop, filters, exposure/tone controls, highlights, shadows and sharpness with pixel-level unit tests. The unsharp-mask calculation and dimension overflow were corrected in #245. |
+| Video effects | PARTIAL | Rotation, speed and color filters are present. Transition effects such as crossfade/fade-through-black are not implemented. |
+| Text and image overlays | PARTIAL | Text overlays and visual PIP layers are composed; richer layer controls and arbitrary placement remain. |
+| AI Studio | PARTIAL / HONESTLY LIMITED | Local luminance and frame-change heuristics only. No learned/generative provider is connected; speech-to-text/caption generation remains disabled. |
+| Export | IMPLEMENTED / CI-VERIFIED | Media3 Transformer, WorkManager background job, progress, cancellation, immutable retry request, error handling and APK validation. Physical export quality and recovery still need device testing. |
+| Accessibility, performance and security | PARTIAL | Basic contrast/touch-target work and bounded image analysis exist. Full accessibility, stress, privacy and security audits remain. |
+| Release packaging | CI-VERIFIED, UNSIGNED | Debug and unsigned release APK artifacts build and validate. A production keystore and signed-release verification are still required. |
 
-## 3. Build & Test Verification
+## 3. Recent code changes
 
-- Command: `gradlew.bat testDebugUnitTest`
-  - Result: **BUILD SUCCESSFUL** (All unit tests passed).
-- Command: `gradlew.bat assembleDebug`
-  - Result: **BUILD SUCCESSFUL** (`app-debug.apk` generated).
-- Command: `gradlew.bat assembleRelease`
-  - Result: **BUILD SUCCESSFUL** (`app-release.apk` generated).
+- #244 cb12671: fixed WorkManager cancellation cleanup without reading unavailable WorkInfo.inputData; added ownership/path-safety tests for export request cleanup.
+- #245 57eda58: corrected the four-neighbour unsharp-mask calculation; added uniform-region, exact-edge and pixel-count overflow tests.
+- #246 e874fa5: separated general edit redo pruning from timeline snapshot redo pruning; removed unsupported SQLite UPDATE-target alias syntax from migration 10→11 and added SQL-contract tests.
+- Current checkpoint update: makes legacy track-0 audio clips share one free audio track per project instead of accidentally assigning each clip to a different track; includes tests for free-track selection and full-track exhaustion.
 
----
+## 4. Legacy CI backlog audit
 
-## 4. Next Actions
-- Verify GitHub Actions CI run on remote push.
-- Perform device testing on physical Android devices across screen sizes.
+The requested legacy commit SHAs were compared with current main; each is an ancestor of current main (behind_by = 0). Superseded commits must not be rerun.
+
+- Already successful, not cancelled: #174, #177, #178.
+- Cancelled and superseded by successful later CI: #175 → #176; #179 → #180; #181 and #183 → #185/#186; #188 → #189; #190/#191 → #192; #194 → #195; #196/#197 → #198 (with later track-position work in #208); #202 → #203; #204 → later successful migration/audio builds including #206 and #216.
+- Failed but superseded: #182 and #184 → #185/#186; #205 → later successful builds including #206 and #216.
+
+The earlier instruction incorrectly included #174, #177 and #178 among cancelled runs; GitHub records them as successful. All listed changes are retained in current main and covered by later successful runs; no obsolete commit rerun is needed.
+
+## 5. Remaining work — do not mark complete
+
+1. Implement and test real video transitions (at minimum a genuine fade-through-black; do not present a fake crossfade).
+2. Validate legacy Room migration on Android API 26–current devices/emulators, including the current track-0 audio allocation behavior.
+3. Complete state-restoring undo/redo for non-timeline/photo edits if those edits are retained as editable operations.
+4. Validate timeline preview/export synchronization, audio mixing, cancellation and process-death recovery on physical devices.
+5. Complete accessibility, large-project performance, storage-pressure and security/privacy audits.
+6. Integrate AI only through a real, secure, consent-aware provider or on-device model; keep unavailable speech/cloud features disabled.
+7. Generate and verify a production-signed release after the owner configures a private keystore. Never use the debug key for distribution.
+
+## 6. Next action
+
+Inspect the CI run triggered by the current checkpoint commit. If it passes, continue with the first incomplete feature above. If it fails, inspect the exact failing job log, fix the root cause, commit the repair, and verify CI again.

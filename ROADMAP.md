@@ -1,22 +1,34 @@
 # FRAMEFORGE Product Roadmap
 
-## Milestone Roadmap & Completion Status
+This roadmap distinguishes implemented code from CI and physical-device verification. A green build does not mean every product feature is complete.
 
-- [x] **Milestone 0 — Repository and Environment Audit**: Baseline code evaluated, Git repository tracked, Java 21 LTS verified, Gradle wrapper configured.
-- [x] **Milestone 1 — Stable Foundation**: Material 3 dark design system, Room database schema, Clean Architecture, navigation structure, buildable Gradle scripts.
-- [x] **Milestone 2 — Projects and Media Library**: Project CRUD, Scoped Storage document picker, thumbnail generation, persistent media references, non-destructive file handling.
-- [x] **Milestone 3 — Video Preview and Timeline Foundation**: AndroidX Media3 `CompositionPlayer`, timeline strip, waveform visualization, playhead scrubbing, duration calculations.
-- [x] **Milestone 4 — Core Editing & Undo/Redo**: Trimming start/end, splitting at playhead, move clip, reorder in track, duplicate, delete, and snapshot-based Undo/Redo.
-- [x] **Milestone 5 — Audio and Overlays**: Concurrent multitrack audio mixing (BGM, voiceover, sound effects), volume adjustment, fade-in/out, and text overlay rendering.
-- [x] **Milestone 6 — Effects and Photo Editing**: Speed scaling (0.5x - 2.0x), visual filters (B&W, Invert, Vivid, Warm, Cool, Sepia), rotation (90°/180°/270°), non-destructive Photo Studio with live before/after comparison.
-- [x] **Milestone 7 — Export Engine**: Media3 `Transformer` export with resolution presets (720p, 1080p, 4K), frame rates (24, 30, 60 fps), codec selection (H.264, H.265), progress bar, cancellation, and sharing.
-- [x] **Milestone 8 — AI Studio**: On-device smart scene cut detection, image luminance analyzer, secure Gemini API key management, offline fallback states.
-- [x] **Milestone 9 — Quality and Optimization**: Unit test suite covering all critical math, codecs, and mixing logic. Memory safety limits on media decoders.
-- [x] **Milestone 10 — Release Preparation**: Production release build type, Proguard rules, signed release APK validation, comprehensive developer and architecture documentation.
+## Implemented core
 
----
+- [x] Android Kotlin/Compose foundation, Material 3 theme and navigation.
+- [x] Room-backed project management and media import/library.
+- [x] Timeline clip data, tracks, gaps, trims, split, move/reorder, duplicate and delete.
+- [x] Timeline snapshot undo/redo with Room persistence and legacy snapshot decoding.
+- [x] Concurrent audio tracks, volume and fade-in/fade-out.
+- [x] Photo crop, filters and tone adjustments, including highlights, shadows and sharpness.
+- [x] Video rotation, speed, color filters and text overlays.
+- [x] Media3 Transformer export and WorkManager-based background export with progress, cancellation and retry input.
+- [x] CI debug/release APK builds, lint, unit tests and APK validation (latest fully verified run #246).
 
-## Future Enhancements
-- Hardware-accelerated Keyframe animation engine for custom pan & zoom (Ken Burns effect).
-- Lottie animated sticker overlays via `LottieOverlay`.
-- On-device Whisper transcription model integration.
+## Incomplete or partially implemented
+
+- [ ] Real video transitions. Fade-through-black/crossfade must affect both preview and export.
+- [ ] Arbitrary visual overlay positioning, scaling and layer controls.
+- [ ] State-restoring undo/redo for non-timeline/photo editing operations.
+- [ ] Physical-device validation of preview/export synchronization, audio mix, recovery and codec compatibility.
+- [ ] Room migration testing on Android API 26 through current Android versions.
+- [ ] Full accessibility, performance, privacy and security audit.
+- [ ] Production-signed release APK/AAB using an owner-controlled private keystore.
+- [ ] Real AI integration through a validated secure provider or on-device model. Current scene/luminance tools are heuristics, not learned AI.
+- [ ] Speech-to-text and automatic captions remain disabled until a real integration is implemented and tested.
+
+## Later enhancements
+
+- Keyframe animation and custom pan/zoom.
+- Rich sticker/graphic overlays.
+- On-device transcription model integration.
+- Additional codecs and export profiles, subject to device support.

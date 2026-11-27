@@ -3,8 +3,8 @@ package com.frameforge.app
 /**
  * SQLite statements for the 10 -> 11 timeline track migration.
  *
- * Do not add an alias to the UPDATE target: SQLite added that syntax in 3.33,
- * newer than the SQLite builds shipped on some Android versions at minSdk 26.
+ * Do not alias the UPDATE target: Android versions supported by minSdk 26
+ * can ship SQLite versions older than 3.33.
  */
 internal object TimelineTrackMigrationSql {
     val statements = listOf(
@@ -13,18 +13,6 @@ internal object TimelineTrackMigrationSql {
             SET trackIndex = trackIndex + 99
             WHERE trackIndex BETWEEN 1 AND 99
               AND (lower(mimeType) LIKE 'video/%' OR lower(mimeType) LIKE 'image/%')
-        """.trimIndent(),
-        """
-            UPDATE timeline_clips
-            SET trackIndex = (
-                SELECT COALESCE(MAX(other.trackIndex), 0) + 1
-                FROM timeline_clips AS other
-                WHERE other.projectId = timeline_clips.projectId
-                  AND lower(other.mimeType) LIKE 'audio/%'
-                  AND other.trackIndex BETWEEN 1 AND 99
-            )
-            WHERE trackIndex = 0
-              AND lower(mimeType) LIKE 'audio/%'
         """.trimIndent(),
         """
             UPDATE timeline_clips
@@ -63,3 +51,7 @@ internal object TimelineTrackMigrationSql {
         """.trimIndent()
     )
 }
+
+internal fun nextAvailableAudioTrack(occupiedTracks: Set<Int>): Int =
+    (1..99).firstOrNull { it !in occupiedTracks }
+        ?: throw IllegalStateException("No free audio track is available for legacy clips.")
