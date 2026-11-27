@@ -15,9 +15,12 @@ internal fun adjustPhotoPixels(
     sharpness: Float
 ): IntArray {
     require(width > 0 && height > 0)
-    require(pixels.size >= width * height)
+    val pixelCount = width.toLong() * height.toLong()
+    require(pixelCount <= pixels.size.toLong() && pixelCount <= Int.MAX_VALUE.toLong()) {
+        "The supplied pixel buffer is smaller than the requested image dimensions."
+    }
 
-    val source = pixels.copyOf(width * height)
+    val source = pixels.copyOf(pixelCount.toInt())
     val output = IntArray(source.size)
     val highlightAmount = highlights.coerceIn(-1f, 1f)
     val shadowAmount = shadows.coerceIn(-1f, 1f)
@@ -58,9 +61,11 @@ internal fun adjustPhotoPixels(
                 channel(top, 0) + channel(bottom, 0) +
                     channel(left, 0) + channel(right, 0)
                 ) * inverseCount
-            val redDetail = red - neighborRed * inverseCount
-            val greenDetail = green - neighborGreen * inverseCount
-            val blueDetail = blue - neighborBlue * inverseCount
+            // The four-neighbour values are already averages. Subtract each
+            // average once to form the high-frequency detail for the unsharp mask.
+            val redDetail = red - neighborRed
+            val greenDetail = green - neighborGreen
+            val blueDetail = blue - neighborBlue
 
             val outRed = (red + toneOffset + redDetail * sharpnessAmount).roundToInt().coerceIn(0, 255)
             val outGreen = (green + toneOffset + greenDetail * sharpnessAmount).roundToInt().coerceIn(0, 255)

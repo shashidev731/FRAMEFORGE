@@ -59,6 +59,35 @@ class PhotoToneAdjustmentsTest {
     }
 
     @Test
+    fun sharpnessLeavesUniformRegionsUnchanged() {
+        val source = IntArray(9) { 0xff808080.toInt() }
+
+        val result = adjustPhotoPixels(source, 3, 3, highlights = 0f, shadows = 0f, sharpness = 1f)
+
+        assertTrue(source.contentEquals(result))
+    }
+
+    @Test
+    fun sharpnessUsesTheFourNeighbourAverageOnce() {
+        val source = intArrayOf(
+            0xff505050.toInt(),
+            0xff505050.toInt(),
+            0xffb4b4b4.toInt()
+        )
+
+        val result = adjustPhotoPixels(source, 3, 1, highlights = 0f, shadows = 0f, sharpness = 1f)
+
+        assertEquals(0x50, result[0] and 0xff)
+        assertEquals(0x3b, result[1] and 0xff)
+        assertEquals(0xc9, result[2] and 0xff)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsImageDimensionsWhosePixelCountOverflowsIntIndexing() {
+        adjustPhotoPixels(intArrayOf(0xff000000.toInt()), Int.MAX_VALUE, 2, 0f, 0f, 0f)
+    }
+
+    @Test
     fun inputPixelsRemainUnchanged() {
         val source = intArrayOf(0xff303030.toInt(), 0xffa0a0a0.toInt())
         val before = source.copyOf()
