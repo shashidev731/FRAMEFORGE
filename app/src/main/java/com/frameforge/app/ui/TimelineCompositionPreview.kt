@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,7 +23,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.DefaultGainProvider
 import androidx.media3.common.audio.GainProcessor
@@ -40,15 +40,9 @@ import androidx.media3.effect.SpeedChangeEffect
 import androidx.media3.effect.TextOverlay
 import androidx.media3.transformer.Composition as MediaComposition
 import androidx.media3.transformer.CompositionPlayer
-import androidx.media3.transformer.DefaultEncoderFactory
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.Effects
-import androidx.media3.transformer.ExportException
-import androidx.media3.transformer.ExportResult
-import androidx.media3.transformer.ProgressHolder
-import androidx.media3.transformer.Transformer
-import androidx.media3.transformer.VideoEncoderSettings
 import androidx.media3.ui.PlayerView
 import com.frameforge.app.data.*
 import com.frameforge.app.ui.theme.Line
@@ -57,6 +51,13 @@ import com.frameforge.app.ui.theme.SurfaceWhite
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flowOf
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import java.util.UUID
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -84,13 +85,62 @@ fun TimelineCompositionPreview(
     }
     val composition: MediaComposition? = compositionResult.getOrNull()
     val player = remember(context) { CompositionPlayer.Builder(context).build() }
-    var exportTransformer by remember { mutableStateOf<Transformer?>(null) }
-    var exportFile by remember { mutableStateOf<File?>(null) }
-    var activeOutputFile by remember { mutableStateOf<File?>(null) }
-    var exportStatus by remember { mutableStateOf("Ready to export") }
-    var exportError by remember { mutableStateOf<String?>(null) }
-    var exportProgress by remember { mutableStateOf(0) }
-    var exportCancelled by remember { mutableStateOf(false) }
+    var exportWorkId by rememberSaveable { mutableStateOf<String?>(null) }
+    var exportStartError by remember { mutableStateOf<String?>(null) }
+    var isQueueingExport by remember { mutableStateOf(false) }
+    var isRestoringExport by remember { mutableStateOf(true) }
+    val workManager = remember(context) { WorkManager.getInstance(context) }
+    LaunchedEffect(context) {
+        val marker = File(context.filesDir, "export-jobs/active-work-id.txt")
+        val restoredId = withContext(Dispatchers.IO) {
+            runCatching { marker.takeIf { it.exists() }?.readText()?.trim() }.getOrNull()
+        }
+        if (!restoredId.isNullOrBlank() && runCatching { UUID.fromString(restoredId) }.isSuccess) {
+            exportWorkId = restoredId
+        }
+        isRestoringExport = false
+    }
+    val exportWorkInfoFlow = remember(exportWorkId) {
+        val id = exportWorkId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        id?.let { workManager.getWorkInfoByIdFlow(it) } ?: flowOf(null)
+    }
+    val exportWorkInfo by exportWorkInfoFlow.collectAsState(initial = null)
+    val isWorkRunning = exportWorkInfo?.state?.let {
+        it == androidx.work.WorkInfo.State.ENQUEUED ||
+            it == androidx.work.WorkInfo.State.BLOCKED ||
+            it == androidx.work.WorkInfo.State.RUNNING
+    } == true
+    val isExportActive = isRestoringExport || isQueueingExport || isWorkRunning
+    val exportProgress = if (exportWorkInfo?.state == androidx.work.WorkInfo.State.SUCCEEDED) {
+        100
+    } else {
+        exportWorkInfo?.progress?.getInt(TimelineExportWorker.KEY_PROGRESS, 0)?.coerceIn(0, 100) ?: 0
+    }
+    val exportFile = exportWorkInfo?.outputData?.getString(TimelineExportWorker.KEY_OUTPUT_PATH)
+        ?.let(::File)?.takeIf { it.exists() }
+    val exportError = exportWorkInfo?.outputData?.getString(TimelineExportWorker.KEY_ERROR) ?: exportStartError
+    val exportStatus = when {
+        isRestoringExport -> "Restoring export status…"
+        isQueueingExport -> "Preparing export…"
+        exportWorkInfo?.state == androidx.work.WorkInfo.State.ENQUEUED -> "Export queued…"
+        exportWorkInfo?.state == androidx.work.WorkInfo.State.BLOCKED -> "Waiting to export…"
+        exportWorkInfo?.state == androidx.work.WorkInfo.State.RUNNING -> "Exporting MP4…"
+        exportWorkInfo?.state == androidx.work.WorkInfo.State.SUCCEEDED -> exportFile?.let {
+            "Export complete (${(it.length() / 1024 / 1024).coerceAtLeast(1)} MB)"
+        } ?: "Export completed, but the output file is unavailable."
+        exportWorkInfo?.state == androidx.work.WorkInfo.State.FAILED -> "Export failed"
+        exportWorkInfo?.state == androidx.work.WorkInfo.State.CANCELLED -> "Export cancelled"
+        else -> if (exportWorkId == null) "Ready to export" else "Previous export status is unavailable; you can start a new export."
+    }
+
+    LaunchedEffect(exportWorkInfo?.id, exportWorkInfo?.state) {
+        if (exportWorkInfo?.state == androidx.work.WorkInfo.State.CANCELLED) {
+            val requestPath = exportWorkInfo?.inputData?.getString(TimelineExportWorker.KEY_REQUEST_PATH)
+            if (requestPath != null) {
+                withContext(Dispatchers.IO) { File(requestPath).delete() }
+            }
+        }
+    }
     var previewPositionMs by remember { mutableStateOf(0L) }
     var previewDurationMs by remember { mutableStateOf(0L) }
     val saveScope = rememberCoroutineScope()
@@ -124,12 +174,8 @@ fun TimelineCompositionPreview(
 
     DisposableEffect(player) {
         onDispose {
+            // Exports are owned by WorkManager and intentionally continue if this screen leaves.
             player.release()
-            if (exportTransformer != null) {
-                exportCancelled = true
-                runCatching { exportTransformer?.cancel() }
-            }
-            activeOutputFile = null
         }
     }
 
@@ -145,16 +191,6 @@ fun TimelineCompositionPreview(
                 runCatching { player.duration }.getOrNull()?.let { if (it > 0L) previewDurationMs = it }
                 delay(250)
             }
-        }
-    }
-
-    LaunchedEffect(exportTransformer) {
-        val current = exportTransformer ?: return@LaunchedEffect
-        val holder = ProgressHolder()
-        while (exportTransformer === current) {
-            val state = runCatching { current.getProgress(holder) }.getOrDefault(Transformer.PROGRESS_STATE_UNAVAILABLE)
-            if (state == Transformer.PROGRESS_STATE_AVAILABLE) exportProgress = holder.progress
-            delay(500)
         }
     }
 
@@ -192,7 +228,7 @@ fun TimelineCompositionPreview(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Timeline preview & composition", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                if (composition != null && exportTransformer == null) {
+                if (composition != null && !isExportActive) {
                     IconButton(onClick = { showExportDialog = true }) {
                         Icon(Icons.Default.Tune, "Export settings", tint = MaterialTheme.colorScheme.primary)
                     }
@@ -255,106 +291,92 @@ fun TimelineCompositionPreview(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Button(
-                        enabled = exportTransformer == null,
+                        enabled = !isExportActive,
                         onClick = {
-                            val outputSpec = exportOutputSpec(exportConfig)
                             val exportCompositionResult = runCatching { buildTimelineComposition(clips, exportConfig) }
                             val exportComposition = exportCompositionResult.getOrNull()
                             if (exportCompositionResult.isFailure || exportComposition == null) {
-                                exportError = exportCompositionResult.exceptionOrNull()?.message
+                                exportStartError = exportCompositionResult.exceptionOrNull()?.message
                                     ?: "The timeline could not be prepared for the selected export settings."
-                                exportStatus = "Export failed"
+                                return@Button
+                            }
+                            val projectId = clips.firstOrNull()?.projectId
+                            if (projectId.isNullOrBlank() || clips.any { it.projectId != projectId }) {
+                                exportStartError = "Select clips from one project before exporting."
                                 return@Button
                             }
                             val outputDirectory = File(
                                 context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir,
                                 "FRAMEFORGE"
-                            ).apply { mkdirs() }
-                            val output = File(outputDirectory, "FRAMEFORGE_${exportConfig.resolution}_${System.currentTimeMillis()}.mp4")
-                            exportFile = null
+                            )
+                            if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
+                                exportStartError = "The export folder could not be created."
+                                return@Button
+                            }
+                            val output = File(
+                                outputDirectory,
+                                "FRAMEFORGE_${exportConfig.resolution}_${System.currentTimeMillis()}.mp4"
+                            )
+                            val requestFile = File(
+                                context.filesDir,
+                                "export-jobs/${UUID.randomUUID()}.ffjob"
+                            )
+                            val request = TimelineExportRequest(
+                                projectId = projectId,
+                                clips = clips,
+                                configuration = exportConfig,
+                                outputPath = output.absolutePath
+                            )
+                            exportStartError = null
                             saveStatus = null
-                            exportCancelled = false
-                            exportError = null
-                            exportProgress = 0
-                            exportStatus = "Starting export…"
-                            activeOutputFile = output
-
-                            val videoMime = if (exportConfig.codec == "H.265") MimeTypes.VIDEO_H265 else MimeTypes.VIDEO_H264
-                            val encoderFactory = DefaultEncoderFactory.Builder(context)
-                                .setRequestedVideoEncoderSettings(
-                                    VideoEncoderSettings.Builder()
-                                        .setBitrate(outputSpec.videoBitrateBps)
+                            isQueueingExport = true
+                            saveScope.launch {
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        requestFile.parentFile?.mkdirs()
+                                        requestFile.writeText(TimelineExportRequestCodec.encode(request), Charsets.UTF_8)
+                                    }
+                                    val workRequest = OneTimeWorkRequestBuilder<TimelineExportWorker>()
+                                        .setInputData(workDataOf(TimelineExportWorker.KEY_REQUEST_PATH to requestFile.absolutePath))
+                                        .setConstraints(Constraints.Builder().setRequiresStorageNotLow(true).build())
+                                        .addTag(TimelineExportWorker.TAG)
                                         .build()
-                                )
-                                .build()
-                            val transformerBuilder = Transformer.Builder(context)
-                                .setEncoderFactory(encoderFactory)
-                                .setVideoMimeType(videoMime)
-                                .addListener(object : Transformer.Listener {
-                                    override fun onCompleted(comp: MediaComposition, exportResult: ExportResult) {
-                                        activeOutputFile = null
-                                        if (exportCancelled) {
-                                            output.delete()
-                                            exportFile = null
-                                            exportStatus = "Export cancelled"
-                                            exportError = null
-                                        } else if (output.exists() && output.length() > 0L) {
-                                            exportFile = output
-                                            exportProgress = 100
-                                            exportStatus = "Export complete (${(output.length() / 1024 / 1024).coerceAtLeast(1)} MB)"
-                                            exportError = null
-                                        } else {
-                                            output.delete()
-                                            exportFile = null
-                                            exportError = "Export finished without a valid output file."
-                                            exportStatus = "Export failed"
-                                        }
-                                        exportTransformer = null
+                                    withContext(Dispatchers.IO) {
+                                        File(context.filesDir, "export-jobs/active-work-id.txt")
+                                            .writeText(workRequest.id.toString())
                                     }
-
-                                    override fun onError(
-                                        comp: MediaComposition,
-                                        exportResult: ExportResult,
-                                        exportException: ExportException
-                                    ) {
-                                        output.delete()
-                                        activeOutputFile = null
-                                        if (exportCancelled) {
-                                            exportStatus = "Export cancelled"
-                                            exportError = null
-                                        } else {
-                                            exportError = exportException.message ?: "The timeline could not be exported."
-                                            exportStatus = "Export failed"
-                                        }
-                                        exportTransformer = null
-                                    }
-                                })
-
-                            val transformer = transformerBuilder.build()
-                            exportTransformer = transformer
-                            runCatching { transformer.start(exportComposition, output.absolutePath) }
-                                .onSuccess { exportStatus = "Exporting MP4 (${exportConfig.resolution} ${exportConfig.frameRate}fps ${exportConfig.codec} ${exportConfig.quality})…" }
-                                .onFailure {
-                                    output.delete()
-                                    activeOutputFile = null
-                                    exportError = it.message ?: "Unable to start export."
-                                    exportStatus = "Export failed"
-                                    exportTransformer = null
+                                    exportWorkId = workRequest.id.toString()
+                                    workManager.enqueueUniqueWork(
+                                        "frameforge-export",
+                                        ExistingWorkPolicy.REPLACE,
+                                        workRequest
+                                    )
+                                } catch (failure: Exception) {
+                                    requestFile.delete()
+                                    exportStartError = failure.message ?: "Unable to queue the export."
+                                } finally {
+                                    isQueueingExport = false
                                 }
+                            }
                         }
                     ) {
                         Icon(Icons.Default.MovieCreation, null)
                         Spacer(Modifier.width(6.dp))
-                        Text(if (exportTransformer == null) "Export ${exportConfig.resolution}" else "Exporting…")
+                        Text(
+                            when {
+                                isRestoringExport -> "Restoring…"
+                                isQueueingExport -> "Preparing…"
+                                isWorkRunning -> "Exporting…"
+                                else -> "Export ${exportConfig.resolution}"
+                            }
+                        )
                     }
 
-                    if (exportTransformer != null) {
+                    if (isWorkRunning) {
                         OutlinedButton(onClick = {
-                            exportCancelled = true
-                            runCatching { exportTransformer?.cancel() }
-                            exportFile = null
-                            exportError = null
-                            exportStatus = "Cancelling export…"
+                            exportWorkId?.let { id ->
+                                runCatching { workManager.cancelWorkById(UUID.fromString(id)) }
+                            }
                         }) { Text("Cancel") }
                     }
 
@@ -405,7 +427,7 @@ fun TimelineCompositionPreview(
                     )
                 }
 
-                if (exportTransformer != null) {
+                if (isWorkRunning) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         LinearProgressIndicator(
                             progress = { exportProgress / 100f },
@@ -500,7 +522,7 @@ private const val VIDEO_TRACK_TYPE = 2
 
 @UnstableApi
 @ExperimentalApi
-private fun buildTimelineComposition(
+internal fun buildTimelineComposition(
     clips: List<TimelineClipEntity>,
     exportConfiguration: ExportConfiguration? = null
 ): MediaComposition? {
