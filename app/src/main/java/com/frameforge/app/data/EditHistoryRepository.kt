@@ -20,7 +20,7 @@ class EditHistoryRepository(private val dao: EditOperationDao) {
         dao.deletePhotoSnapshots(projectId)
     }
 
-    suspend fun recordPhotoSnapshot(projectId: String, snapshot: PhotoEditSnapshot) {
+    internal suspend fun recordPhotoSnapshot(projectId: String, snapshot: PhotoEditSnapshot) {
         require(projectId.isNotBlank()) { "A project is required" }
         dao.appendPhotoSnapshot(
             projectId = projectId,
@@ -30,10 +30,18 @@ class EditHistoryRepository(private val dao: EditOperationDao) {
         )
     }
 
-    suspend fun undoPhoto(projectId: String): PhotoEditSnapshot? =
+    internal suspend fun loadPhotoSnapshot(projectId: String, sourceUri: String): PhotoEditSnapshot? {
+        require(projectId.isNotBlank()) { "A project is required" }
+        val latest = dao.latestAppliedPhotoSnapshot(projectId) ?: return null
+        val snapshot = decodePhotoSnapshotForSource(latest.payload, sourceUri)
+        if (snapshot == null) dao.deletePhotoSnapshots(projectId)
+        return snapshot
+    }
+
+    internal suspend fun undoPhoto(projectId: String): PhotoEditSnapshot? =
         dao.undoPhotoSnapshot(projectId)?.payload?.let(PhotoEditSnapshotCodec::decode)
 
-    suspend fun redoPhoto(projectId: String): PhotoEditSnapshot? =
+    internal suspend fun redoPhoto(projectId: String): PhotoEditSnapshot? =
         dao.redoPhotoSnapshot(projectId)?.payload?.let(PhotoEditSnapshotCodec::decode)
 
     suspend fun undo(projectId: String): Boolean = dao.undoLatest(projectId) > 0

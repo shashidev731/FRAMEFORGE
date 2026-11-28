@@ -74,3 +74,11 @@ internal object PhotoEditSnapshotCodec {
     private fun decodeText(value: String): String =
         String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8)
 }
+
+/** Returns a decoded snapshot only when it belongs to the currently selected source URI. */
+internal fun decodePhotoSnapshotForSource(payload: String?, sourceUri: String): PhotoEditSnapshot? {
+    if (payload.isNullOrBlank() || sourceUri.isBlank()) return null
+    return runCatching { PhotoEditSnapshotCodec.decode(payload) }
+        .getOrNull()
+        ?.takeIf { it.sourceUri == sourceUri }
+}

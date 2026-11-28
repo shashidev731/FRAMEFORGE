@@ -62,6 +62,29 @@ class PhotoEditSnapshotCodecTest {
     }
 
     @Test
+    fun snapshotIsRestoredOnlyForTheSamePersistedSourceUri() {
+        val snapshot = PhotoEditSnapshot(
+            sourceUri = "content://photo/one",
+            exposure = 0.5f,
+            saturation = 1f,
+            contrast = 1f,
+            warmth = 0f,
+            highlights = 0f,
+            shadows = 0f,
+            sharpness = 0f,
+            overlayText = "",
+            rotationDegrees = 0,
+            cropRatio = "Original",
+            cropHorizontalPosition = 0f,
+            cropVerticalPosition = 0f
+        )
+        val payload = PhotoEditSnapshotCodec.encode(snapshot)
+        assertEquals(snapshot, decodePhotoSnapshotForSource(payload, "content://photo/one"))
+        assertEquals(null, decodePhotoSnapshotForSource(payload, "content://photo/two"))
+        assertEquals(null, decodePhotoSnapshotForSource("malformed", "content://photo/one"))
+    }
+
+    @Test
     fun rejectsUnknownVersionsAndTruncatedSnapshots() {
         assertTrue(runCatching { PhotoEditSnapshotCodec.decode("PHS0|") }.isFailure)
         assertTrue(runCatching { PhotoEditSnapshotCodec.decode("PHS1|short") }.isFailure)

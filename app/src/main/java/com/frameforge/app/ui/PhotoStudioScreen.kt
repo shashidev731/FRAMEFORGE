@@ -110,8 +110,9 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             sourceUriText = uri.toString()
+            sourceBitmap = null
+            previewBitmap = null
             scope.launch {
-                if (projectId != null) editHistoryRepository?.clearPhotoHistory(projectId)
                 isProcessing = true
                 val decoded = withContext(Dispatchers.IO) {
                     decodePhotoForEditing(context, uri)
@@ -134,7 +135,12 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 status = if (decoded == null) "This image could not be opened." else "Original loaded. Adjust the controls; the source file stays unchanged."
                 isProcessing = false
                 if (decoded != null && projectId != null) {
-                    currentPhotoSnapshot()?.let { editHistoryRepository?.recordPhotoSnapshot(projectId, it) }
+                    val restored = editHistoryRepository?.loadPhotoSnapshot(projectId, uri.toString())
+                    if (restored != null) {
+                        applyPhotoSnapshot(restored)
+                    } else {
+                        currentPhotoSnapshot()?.let { editHistoryRepository?.recordPhotoSnapshot(projectId, it) }
+                    }
                 }
             }
         }

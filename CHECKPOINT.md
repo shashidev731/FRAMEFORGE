@@ -4,7 +4,7 @@
 - **Repository:** https://github.com/shashidev731/FRAMEFORGE
 - **Branch:** main
 - **Last fully CI-verified code baseline:** 9883d0be013bd04ba1770e3a08860ea832fc50b3 (CI run #248, success)
-- **Current update:** Adds complete photo-edit state snapshots with project/source-scoped persistent Undo/Redo. CI for this update is pending.
+- **Current update:** Commit b699fd7 added photo snapshots but CI #249 exposed Kotlin visibility errors (public methods exposed an internal snapshot type). The repair marks those APIs internal and restores the last saved snapshot when the same URI is reselected, preserving history across process restarts. Repair CI is pending.
 - **Completion:** Not 100% complete. Code coverage, CI verification, and physical-device verification are tracked separately.
 
 ## 1. Latest verified CI and artifacts
@@ -33,7 +33,7 @@ The release artifact is unsigned because no private release-signing secrets were
 | Media import and library | IMPLEMENTED | Document picker, persisted URI access/private-copy handling, metadata and thumbnails. Device/provider edge cases still need testing. |
 | Timeline editing | IMPLEMENTED | Tracks, gaps, trims, split, move/reorder, duplicate/delete, clip timing and speed calculations have code and unit coverage. |
 | Visual track composition | IMPLEMENTED / PARTIAL | Main visual sequence plus picture-in-picture overlay sequences. Arbitrary freeform positioning and transitions are not complete. |
-| Undo/redo | PARTIAL | Timeline snapshot history restores clip state. Photo Studio now stores complete per-source edit snapshots and restores them through Undo/Redo; this change is awaiting CI. Other non-photo edit history is not implemented. |
+| Undo/redo | PARTIAL | Timeline snapshot history restores clip state. Photo Studio snapshot history now restores state for the same source URI across re-selection; commit b699fd7 failed compilation and the follow-up visibility/persistence repair is awaiting CI. Other non-photo edit history is not implemented. |
 | Audio editing | IMPLEMENTED | Concurrent audio tracks, volume and fade-in/fade-out via Media3 gain processing. Physical audio-sync validation remains. |
 | Photo editing | IMPLEMENTED | Crop, filters, exposure/tone controls, highlights, shadows and sharpness with pixel-level unit tests. The unsharp-mask calculation and dimension overflow were corrected in #245. |
 | Video effects | PARTIAL | Rotation, speed and color filters are present. Per-clip fade-in/fade-out is now implemented in the shared preview/export compositor path; cross-dissolve between adjacent clips remains unsupported. CI for this change is pending. |
@@ -72,4 +72,4 @@ The earlier instruction incorrectly included #174, #177 and #178 among cancelled
 
 ## 6. Next action
 
-The photo snapshot history implementation is committed on main; inspect its CI run. If it passes, continue with the remaining non-photo undo/redo gap and the accessibility/performance audit. If it fails, inspect the exact failing job log, fix the root cause, commit the repair, and verify CI again.
+Commit b699fd7 failed in Kotlin compilation because three public repository methods exposed internal PhotoEditSnapshot. The follow-up repair makes those APIs internal and preserves same-source photo history across app restarts. Verify the new CI run; if it fails, inspect the exact compiler/test error, fix it, commit, and retry.
