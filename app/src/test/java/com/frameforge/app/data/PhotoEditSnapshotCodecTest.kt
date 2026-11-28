@@ -85,6 +85,44 @@ class PhotoEditSnapshotCodecTest {
     }
 
     @Test
+    fun sourceUriTokensAreDeterministicAndDistinct() {
+        val firstUri = "content://media/photos/primary"
+        val secondUri = "content://media/photos/secondary"
+        val firstToken = PhotoEditSnapshotCodec.sourceUriToken(firstUri)
+        val secondToken = PhotoEditSnapshotCodec.sourceUriToken(secondUri)
+        val payload = PhotoEditSnapshotCodec.encode(
+            PhotoEditSnapshot(
+                sourceUri = firstUri,
+                exposure = 0f,
+                saturation = 1f,
+                contrast = 1f,
+                warmth = 0f,
+                highlights = 0f,
+                shadows = 0f,
+                sharpness = 0f,
+                overlayText = "",
+                rotationDegrees = 0,
+                cropRatio = "Original",
+                cropHorizontalPosition = 0f,
+                cropVerticalPosition = 0f
+            )
+        )
+
+        assertEquals(firstToken, PhotoEditSnapshotCodec.sourceUriToken(firstUri))
+        assertTrue(firstToken != secondToken)
+        assertTrue(payload.startsWith("PHS1|$firstToken|"))
+        assertTrue(!payload.startsWith("PHS1|$secondToken|"))
+    }
+
+    @Test
+    fun photoHistorySqlMatchesTheExactEncodedUriPrefix() {
+        assertTrue(PHOTO_SOURCE_MATCH_SQL.contains("substr(payload"))
+        assertTrue(PHOTO_SOURCE_MATCH_SQL.contains("PHS1|"))
+        assertTrue(PHOTO_SOURCE_MATCH_SQL.contains(":sourceUriToken"))
+        assertTrue(!PHOTO_SOURCE_MATCH_SQL.contains("LIKE"))
+    }
+
+    @Test
     fun rejectsUnknownVersionsAndTruncatedSnapshots() {
         assertTrue(runCatching { PhotoEditSnapshotCodec.decode("PHS0|") }.isFailure)
         assertTrue(runCatching { PhotoEditSnapshotCodec.decode("PHS1|short") }.isFailure)
