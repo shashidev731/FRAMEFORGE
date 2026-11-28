@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.frameforge.app.ui.theme.*
 import com.frameforge.app.data.EditHistoryRepository
+import com.frameforge.app.data.PhotoEditSnapshot
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -42,6 +44,7 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
     var sourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var sourceName by remember { mutableStateOf("") }
+    var sourceUriText by remember { mutableStateOf<String?>(null) }
     var exposure by remember { mutableFloatStateOf(0f) }
     var saturation by remember { mutableFloatStateOf(1f) }
     var contrast by remember { mutableFloatStateOf(1f) }
@@ -58,14 +61,57 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
     var showOriginal by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Choose a photo to start editing.") }
     var exportBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var exportSummary by remember { mutableStateOf("") }
+    val photoHistoryFlow = remember(projectId, editHistoryRepository) {
+        if (projectId != null && editHistoryRepository != null) editHistoryRepository.photoHistory(projectId)
+        else flowOf(emptyList())
+    }
+    val photoHistory by photoHistoryFlow.collectAsState(initial = emptyList())
+    val canUndoPhoto = projectId != null && editHistoryRepository != null && photoHistory.count { it.isApplied } > 1
+    val canRedoPhoto = projectId != null && editHistoryRepository != null && photoHistory.any { !it.isApplied }
+
+    fun currentPhotoSnapshot(): PhotoEditSnapshot? {
+        val uri = sourceUriText ?: return null
+        return PhotoEditSnapshot(
+            sourceUri = uri,
+            exposure = exposure,
+            saturation = saturation,
+            contrast = contrast,
+            warmth = warmth,
+            highlights = highlights,
+            shadows = shadows,
+            sharpness = sharpness,
+            overlayText = overlayText,
+            rotationDegrees = rotation,
+            cropRatio = cropRatio,
+            cropHorizontalPosition = cropHorizontalPosition,
+            cropVerticalPosition = cropVerticalPosition
+        )
+    }
+
+    fun applyPhotoSnapshot(snapshot: PhotoEditSnapshot) {
+        if (snapshot.sourceUri != sourceUriText) return
+        exposure = snapshot.exposure
+        saturation = snapshot.saturation
+        contrast = snapshot.contrast
+        warmth = snapshot.warmth
+        highlights = snapshot.highlights
+        shadows = snapshot.shadows
+        sharpness = snapshot.sharpness
+        overlayText = snapshot.overlayText
+        rotation = snapshot.rotationDegrees
+        cropRatio = snapshot.cropRatio
+        cropHorizontalPosition = snapshot.cropHorizontalPosition
+        cropVerticalPosition = snapshot.cropVerticalPosition
+    }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             runCatching {
                 context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
+            sourceUriText = uri.toString()
             scope.launch {
+                if (projectId != null) editHistoryRepository?.clearPhotoHistory(projectId)
                 isProcessing = true
                 val decoded = withContext(Dispatchers.IO) {
                     decodePhotoForEditing(context, uri)
@@ -87,6 +133,9 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 showOriginal = false
                 status = if (decoded == null) "This image could not be opened." else "Original loaded. Adjust the controls; the source file stays unchanged."
                 isProcessing = false
+                if (decoded != null && projectId != null) {
+                    currentPhotoSnapshot()?.let { editHistoryRepository?.recordPhotoSnapshot(projectId, it) }
+                }
             }
         }
     }
@@ -103,13 +152,15 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                     }.isSuccess
                 }
                 status = if (saved) "Export complete. Your edited copy was saved; the original remains unchanged." else "Export failed. Choose another destination and try again."
-                if (saved && projectId != null) {
-                    runCatching {
-                        editHistoryRepository?.record(projectId, "PHOTO_EXPORT", exportSummary)
-                    }
-                }
                 exportBitmap = null
             }
+        }
+    }
+
+    LaunchedEffect(projectId, sourceUriText, sourceBitmap, exposure, saturation, contrast, warmth, highlights, shadows, sharpness, overlayText, rotation, cropRatio, cropHorizontalPosition, cropVerticalPosition) {
+        if (projectId != null && sourceUriText != null && sourceBitmap != null) {
+            delay(450)
+            currentPhotoSnapshot()?.let { editHistoryRepository?.recordPhotoSnapshot(projectId, it) }
         }
     }
 
@@ -146,6 +197,16 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(sourceName, modifier = Modifier.weight(1f), color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                if (projectId != null && editHistoryRepository != null) {
+                    TextButton(
+                        onClick = { scope.launch { editHistoryRepository.undoPhoto(projectId)?.let(::applyPhotoSnapshot) } },
+                        enabled = canUndoPhoto
+                    ) { Icon(Icons.Default.Undo, null); Text("Undo") }
+                    TextButton(
+                        onClick = { scope.launch { editHistoryRepository.redoPhoto(projectId)?.let(::applyPhotoSnapshot) } },
+                        enabled = canRedoPhoto
+                    ) { Icon(Icons.Default.Redo, null); Text("Redo") }
+                }
                 TextButton(onClick = { showOriginal = !showOriginal }, enabled = previewBitmap != null) {
                     Icon(Icons.Default.Compare, null)
                     Spacer(Modifier.width(4.dp))
@@ -252,7 +313,6 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
             Button(
                 onClick = {
                     exportBitmap = previewBitmap
-                    exportSummary = "crop=$cropRatio; cropX=$cropHorizontalPosition; cropY=$cropVerticalPosition; exposure=$exposure EV; saturation=$saturation; contrast=$contrast; warmth=$warmth; highlights=$highlights; shadows=$shadows; sharpness=$sharpness; rotation=$rotation; text=$overlayText"
                     savePicker.launch("FRAMEFORGE_${System.currentTimeMillis()}.jpg")
                 },
                 enabled = previewBitmap != null && !isProcessing,

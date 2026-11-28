@@ -18,7 +18,8 @@ Package: `com.frameforge.app`
 - **Rotation**: Rotate clips 90°, 180°, or 270° with hardware-accelerated transformation.
 - **Subtitles & Text Overlays**: Per-clip text captions rendered in real-time preview and baked into the final export via Media3 `TextOverlay`.
 - **Video fades**: Per-clip fade-in/fade-out alpha curves are applied by the shared video compositor in both preview and export. Main-track fades reveal black; overlay-track fades reveal lower visual layers. This is not a cross-dissolve between two clips.
-- **Persistent Undo & Redo**: Transactional snapshot history stored in SQLite Room via `TimelineSnapshotCodec (TSH3)`.
+- **Persistent Timeline Undo & Redo**: Transactional before/after snapshots stored in SQLite Room via `TimelineSnapshotCodec (TSH4)`, retaining TSH1–TSH3 compatibility.
+- **Persistent Photo Undo & Redo**: Complete non-destructive photo adjustment states are debounced and stored per project/source in Room; Undo and Redo restore crop, tone, sharpness, text and rotation controls.
 
 ### 🔊 Audio Editing & Mixing
 - Simultaneous multitrack playback.

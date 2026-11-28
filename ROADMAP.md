@@ -8,6 +8,7 @@ This roadmap distinguishes implemented code from CI and physical-device verifica
 - [x] Room-backed project management and media import/library.
 - [x] Timeline clip data, tracks, gaps, trims, split, move/reorder, duplicate and delete.
 - [x] Timeline snapshot undo/redo with Room persistence and legacy snapshot decoding.
+- [x] Photo Studio state-restoring undo/redo with versioned Room snapshots for crop, tone, sharpness, text and rotation.
 - [x] Concurrent audio tracks, volume and fade-in/fade-out.
 - [x] Photo crop, filters and tone adjustments, including highlights, shadows and sharpness.
 - [x] Video rotation, speed, color filters, text overlays, and per-clip fade-in/fade-out curves shared by preview and export.
@@ -18,7 +19,7 @@ This roadmap distinguishes implemented code from CI and physical-device verifica
 
 - [ ] Cross-dissolve between adjacent clips. Per-clip fade-in/out now affects both preview and export; cross-dissolve remains unsupported and must not be represented as implemented.
 - [ ] Arbitrary visual overlay positioning, scaling and layer controls.
-- [ ] State-restoring undo/redo for non-timeline/photo editing operations.
+- [ ] State-restoring undo/redo for non-photo non-timeline editing operations; video export operations are no longer recorded as falsely undoable instructions.
 - [ ] Physical-device validation of preview/export synchronization, audio mix, recovery and codec compatibility.
 - [ ] Room migration testing on Android API 26 through current Android versions.
 - [ ] Full accessibility, performance, privacy and security audit.

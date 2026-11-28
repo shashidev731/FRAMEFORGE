@@ -46,7 +46,6 @@ fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
     var exporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableStateOf(0f) }
     var status by remember { mutableStateOf("Choose a video to preview and trim.") }
-    var exportSummary by remember { mutableStateOf("") }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -94,11 +93,6 @@ fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 }
                 exporting = false
                 exportProgress = 0f
-                if (result.isSuccess && projectId != null) {
-                    runCatching {
-                        editHistoryRepository?.record(projectId, "VIDEO_TRIM", exportSummary)
-                    }
-                }
                 status = result.fold(
                     onSuccess = { "Export complete. Your trimmed MP4 is a new file; the original video was not changed." },
                     onFailure = { "Export failed: ${it.message ?: "unsupported video or destination"}. Try another MP4 file." }
@@ -158,7 +152,6 @@ fun VideoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 }
             }
             Button(onClick = {
-                exportSummary = "start=${formatSeconds(startSeconds)}; end=${formatSeconds(endSeconds)}; source=$videoName"
                 exporter.launch("FRAMEFORGE_trim_${System.currentTimeMillis()}.mp4")
             },
                 enabled = durationSeconds > 0.2f && endSeconds > startSeconds + 0.1f && !exporting,

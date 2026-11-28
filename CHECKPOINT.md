@@ -3,8 +3,8 @@
 - **Application:** FRAMEFORGE (com.frameforge.app)
 - **Repository:** https://github.com/shashidev731/FRAMEFORGE
 - **Branch:** main
-- **Last fully CI-verified code baseline:** 6ad996e31dffab1c4fb0631ccf571559846fbaff (CI run #247, success)
-- **Current update:** Adds persisted per-clip video fade-in/fade-out controls and a shared compositor alpha curve for preview/export. The new code and schema migration require CI verification before being marked tested.
+- **Last fully CI-verified code baseline:** 9883d0be013bd04ba1770e3a08860ea832fc50b3 (CI run #248, success)
+- **Current update:** Adds complete photo-edit state snapshots with project/source-scoped persistent Undo/Redo. CI for this update is pending.
 - **Completion:** Not 100% complete. Code coverage, CI verification, and physical-device verification are tracked separately.
 
 ## 1. Latest verified CI and artifacts
@@ -33,7 +33,7 @@ The release artifact is unsigned because no private release-signing secrets were
 | Media import and library | IMPLEMENTED | Document picker, persisted URI access/private-copy handling, metadata and thumbnails. Device/provider edge cases still need testing. |
 | Timeline editing | IMPLEMENTED | Tracks, gaps, trims, split, move/reorder, duplicate/delete, clip timing and speed calculations have code and unit coverage. |
 | Visual track composition | IMPLEMENTED / PARTIAL | Main visual sequence plus picture-in-picture overlay sequences. Arbitrary freeform positioning and transitions are not complete. |
-| Timeline undo/redo | IMPLEMENTED | Room-persisted before/after snapshots restore timeline clip state; codec supports TSH1–TSH3. General photo/edit history is not yet a full state-restoring undo engine. |
+| Undo/redo | PARTIAL | Timeline snapshot history restores clip state. Photo Studio now stores complete per-source edit snapshots and restores them through Undo/Redo; this change is awaiting CI. Other non-photo edit history is not implemented. |
 | Audio editing | IMPLEMENTED | Concurrent audio tracks, volume and fade-in/fade-out via Media3 gain processing. Physical audio-sync validation remains. |
 | Photo editing | IMPLEMENTED | Crop, filters, exposure/tone controls, highlights, shadows and sharpness with pixel-level unit tests. The unsharp-mask calculation and dimension overflow were corrected in #245. |
 | Video effects | PARTIAL | Rotation, speed and color filters are present. Per-clip fade-in/fade-out is now implemented in the shared preview/export compositor path; cross-dissolve between adjacent clips remains unsupported. CI for this change is pending. |
@@ -64,7 +64,7 @@ The earlier instruction incorrectly included #174, #177 and #178 among cancelled
 
 1. Verify the new per-clip video fade-in/fade-out implementation in CI, then validate fade rendering on a physical device. Cross-dissolve between adjacent clips remains a separate unsupported feature.
 2. Validate legacy Room migration on Android API 26–current devices/emulators, including the current track-0 audio allocation behavior.
-3. Complete state-restoring undo/redo for non-timeline/photo edits if those edits are retained as editable operations.
+3. Extend state-restoring undo/redo to any remaining non-photo editing tools; photo edit state restoration is implemented in the current pending-CI change.
 4. Validate timeline preview/export synchronization, audio mixing, cancellation and process-death recovery on physical devices.
 5. Complete accessibility, large-project performance, storage-pressure and security/privacy audits.
 6. Integrate AI only through a real, secure, consent-aware provider or on-device model; keep unavailable speech/cloud features disabled.
@@ -72,4 +72,4 @@ The earlier instruction incorrectly included #174, #177 and #178 among cancelled
 
 ## 6. Next action
 
-The per-clip fade implementation is committed on main; inspect its CI run. If it passes, continue with physical-device validation planning and state-restoring undo/redo for non-timeline edits. If it fails, inspect the exact failing job log, fix the root cause, commit the repair, and verify CI again.
+The photo snapshot history implementation is committed on main; inspect its CI run. If it passes, continue with the remaining non-photo undo/redo gap and the accessibility/performance audit. If it fails, inspect the exact failing job log, fix the root cause, commit the repair, and verify CI again.

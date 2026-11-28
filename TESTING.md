@@ -4,7 +4,9 @@
 
 The automated test suite runs via JUnit 4 on JVM through `:app:testDebugUnitTest`.
 
-### 1. Snapshot Serialization & History (`TimelineSnapshotCodecTest`)
+### 1. Snapshot Serialization & History (`TimelineSnapshotCodecTest`, `PhotoEditSnapshotCodecTest`)
+- Timeline snapshot TSH4 round-trip includes video fade-in/out while retaining TSH1, TSH2 and TSH3 defaults.
+- Photo snapshot round-trip preserves source URI, crop, tone, sharpness, overlay text and rotation; malformed payloads and out-of-range values are rejected or clamped.
 - Round-trip encoding and decoding of empty and populated clip lists.
 - Backward compatibility verification for legacy `TSH1` (14-field) and `TSH2` (16-field) snapshots.
 - New `TSH3` format testing for `speed`, `filterEffect`, `rotationDegrees`, and `textOverlay`.

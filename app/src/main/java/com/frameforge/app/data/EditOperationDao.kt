@@ -8,15 +8,36 @@ import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 internal const val GENERAL_REDO_BRANCH_DELETE_SQL =
-    "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 0"
+    "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType NOT IN ('timeline_snapshot', 'photo_snapshot') AND isApplied = 0"
+
+internal const val PHOTO_REDO_BRANCH_DELETE_SQL =
+    "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND isApplied = 0"
+
+internal const val PHOTO_HISTORY_DELETE_SQL =
+    "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot'"
 
 internal const val TIMELINE_REDO_BRANCH_DELETE_SQL =
     "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'timeline_snapshot' AND isApplied = 0"
 
 @Dao
 interface EditOperationDao {
-    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' ORDER BY sequence ASC")
+    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType NOT IN ('timeline_snapshot', 'photo_snapshot') ORDER BY sequence ASC")
     fun observeOperations(projectId: String): Flow<List<EditOperationEntity>>
+
+    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' ORDER BY sequence ASC")
+    fun observePhotoHistory(projectId: String): Flow<List<EditOperationEntity>>
+
+    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND isApplied = 1 ORDER BY sequence DESC LIMIT 1")
+    suspend fun latestAppliedPhotoSnapshot(projectId: String): EditOperationEntity?
+
+    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND isApplied = 0 ORDER BY sequence ASC LIMIT 1")
+    suspend fun nextPhotoSnapshotRedo(projectId: String): EditOperationEntity?
+
+    @Query(PHOTO_REDO_BRANCH_DELETE_SQL)
+    suspend fun discardPhotoRedoBranch(projectId: String)
+
+    @Query(PHOTO_HISTORY_DELETE_SQL)
+    suspend fun deletePhotoSnapshots(projectId: String)
 
     @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'timeline_snapshot' ORDER BY sequence ASC")
     fun observeTimelineHistory(projectId: String): Flow<List<EditOperationEntity>>
@@ -58,22 +79,43 @@ interface EditOperationDao {
         insert(EditOperationEntity(operationId, projectId, sequence, "timeline_snapshot", payload, createdAt))
     }
 
+    @Transaction
+    suspend fun appendPhotoSnapshot(projectId: String, payload: String, operationId: String, createdAt: Long) {
+        if (latestAppliedPhotoSnapshot(projectId)?.payload == payload) return
+        discardPhotoRedoBranch(projectId)
+        insert(EditOperationEntity(operationId, projectId, nextSequence(projectId), "photo_snapshot", payload, createdAt))
+    }
+
+    @Transaction
+    suspend fun undoPhotoSnapshot(projectId: String): EditOperationEntity? {
+        val current = latestAppliedPhotoSnapshot(projectId) ?: return null
+        setApplied(current.operationId, false)
+        return latestAppliedPhotoSnapshot(projectId)
+    }
+
+    @Transaction
+    suspend fun redoPhotoSnapshot(projectId: String): EditOperationEntity? {
+        val next = nextPhotoSnapshotRedo(projectId) ?: return null
+        setApplied(next.operationId, true)
+        return next
+    }
+
     @Query("SELECT COALESCE(MAX(sequence), 0) + 1 FROM edit_operations WHERE projectId = :projectId")
     suspend fun nextSequence(projectId: String): Long
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(operation: EditOperationEntity)
 
-    @Query("UPDATE edit_operations SET isApplied = 0 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 1 ORDER BY sequence DESC LIMIT 1)")
+    @Query("UPDATE edit_operations SET isApplied = 0 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND operationType NOT IN ('timeline_snapshot', 'photo_snapshot') AND isApplied = 1 ORDER BY sequence DESC LIMIT 1)")
     suspend fun undoLatest(projectId: String): Int
 
-    @Query("UPDATE edit_operations SET isApplied = 1 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 0 ORDER BY sequence ASC LIMIT 1)")
+    @Query("UPDATE edit_operations SET isApplied = 1 WHERE operationId = (SELECT operationId FROM edit_operations WHERE projectId = :projectId AND operationType NOT IN ('timeline_snapshot', 'photo_snapshot') AND isApplied = 0 ORDER BY sequence ASC LIMIT 1)")
     suspend fun redoNext(projectId: String): Int
 
     @Query(GENERAL_REDO_BRANCH_DELETE_SQL)
     suspend fun discardRedoBranch(projectId: String)
 
-    @Query("SELECT COUNT(*) FROM edit_operations WHERE projectId = :projectId AND operationType != 'timeline_snapshot' AND isApplied = 1")
+    @Query("SELECT COUNT(*) FROM edit_operations WHERE projectId = :projectId AND operationType NOT IN ('timeline_snapshot', 'photo_snapshot') AND isApplied = 1")
     suspend fun appliedCount(projectId: String): Int
 
     @Query("DELETE FROM edit_operations WHERE projectId = :projectId")
