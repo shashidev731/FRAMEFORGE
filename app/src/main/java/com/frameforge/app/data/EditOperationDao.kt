@@ -16,6 +16,15 @@ internal const val PHOTO_REDO_BRANCH_DELETE_SQL =
 internal const val PHOTO_HISTORY_DELETE_SQL =
     "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot'"
 
+internal const val PHOTO_SOURCE_MATCH_SQL =
+    "substr(payload, 1, length('PHS1|' || :sourceUriToken || '|')) = 'PHS1|' || :sourceUriToken || '|'"
+
+internal const val PHOTO_SOURCE_REDO_BRANCH_DELETE_SQL =
+    "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND $PHOTO_SOURCE_MATCH_SQL AND isApplied = 0"
+
+internal const val PHOTO_SOURCE_HISTORY_DELETE_SQL =
+    "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND $PHOTO_SOURCE_MATCH_SQL"
+
 internal const val TIMELINE_REDO_BRANCH_DELETE_SQL =
     "DELETE FROM edit_operations WHERE projectId = :projectId AND operationType = 'timeline_snapshot' AND isApplied = 0"
 
@@ -26,6 +35,21 @@ interface EditOperationDao {
 
     @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' ORDER BY sequence ASC")
     fun observePhotoHistory(projectId: String): Flow<List<EditOperationEntity>>
+
+    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND $PHOTO_SOURCE_MATCH_SQL ORDER BY sequence ASC")
+    fun observePhotoHistoryForSource(projectId: String, sourceUriToken: String): Flow<List<EditOperationEntity>>
+
+    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND $PHOTO_SOURCE_MATCH_SQL AND isApplied = 1 ORDER BY sequence DESC LIMIT 1")
+    suspend fun latestAppliedPhotoSnapshotForSource(projectId: String, sourceUriToken: String): EditOperationEntity?
+
+    @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND $PHOTO_SOURCE_MATCH_SQL AND isApplied = 0 ORDER BY sequence ASC LIMIT 1")
+    suspend fun nextPhotoSnapshotRedoForSource(projectId: String, sourceUriToken: String): EditOperationEntity?
+
+    @Query(PHOTO_SOURCE_REDO_BRANCH_DELETE_SQL)
+    suspend fun discardPhotoRedoBranchForSource(projectId: String, sourceUriToken: String)
+
+    @Query(PHOTO_SOURCE_HISTORY_DELETE_SQL)
+    suspend fun deletePhotoSnapshotsForSource(projectId: String, sourceUriToken: String)
 
     @Query("SELECT * FROM edit_operations WHERE projectId = :projectId AND operationType = 'photo_snapshot' AND isApplied = 1 ORDER BY sequence DESC LIMIT 1")
     suspend fun latestAppliedPhotoSnapshot(projectId: String): EditOperationEntity?
@@ -84,6 +108,33 @@ interface EditOperationDao {
         if (latestAppliedPhotoSnapshot(projectId)?.payload == payload) return
         discardPhotoRedoBranch(projectId)
         insert(EditOperationEntity(operationId, projectId, nextSequence(projectId), "photo_snapshot", payload, createdAt))
+    }
+
+    @Transaction
+    suspend fun appendPhotoSnapshotForSource(
+        projectId: String,
+        sourceUriToken: String,
+        payload: String,
+        operationId: String,
+        createdAt: Long
+    ) {
+        if (latestAppliedPhotoSnapshotForSource(projectId, sourceUriToken)?.payload == payload) return
+        discardPhotoRedoBranchForSource(projectId, sourceUriToken)
+        insert(EditOperationEntity(operationId, projectId, nextSequence(projectId), "photo_snapshot", payload, createdAt))
+    }
+
+    @Transaction
+    suspend fun undoPhotoSnapshotForSource(projectId: String, sourceUriToken: String): EditOperationEntity? {
+        val current = latestAppliedPhotoSnapshotForSource(projectId, sourceUriToken) ?: return null
+        setApplied(current.operationId, false)
+        return latestAppliedPhotoSnapshotForSource(projectId, sourceUriToken)
+    }
+
+    @Transaction
+    suspend fun redoPhotoSnapshotForSource(projectId: String, sourceUriToken: String): EditOperationEntity? {
+        val next = nextPhotoSnapshotRedoForSource(projectId, sourceUriToken) ?: return null
+        setApplied(next.operationId, true)
+        return next
     }
 
     @Transaction
