@@ -4,7 +4,7 @@
 - **Repository:** https://github.com/shashidev731/FRAMEFORGE
 - **Branch:** main
 - **Last fully CI-verified code baseline:** 9883d0be013bd04ba1770e3a08860ea832fc50b3 (CI run #248, success)
-- **Current update:** Commit b699fd7 added photo snapshots but CI #249 exposed Kotlin visibility errors (public methods exposed an internal snapshot type). The repair marks those APIs internal and restores the last saved snapshot when the same URI is reselected, preserving history across process restarts. Repair CI is pending.
+- **Current code checkpoint:** `c56f6cfbb2dce882a365974ad510674f8b8b8e91` adds source-URI-scoped photo history queries, independent per-image undo/redo branches, source-specific cleanup, and UI controls bound to the selected image. These changes do not alter the Room schema. **CI is unverified:** the connected GitHub status endpoint returned no status entries, and the available workflow-run lookup only returns pull-request-triggered runs (none were returned for these push commits). Do not mark these commits CI-verified until the Actions run is inspected.
 - **Completion:** Not 100% complete. Code coverage, CI verification, and physical-device verification are tracked separately.
 
 ## 1. Latest verified CI and artifacts
@@ -33,7 +33,7 @@ The release artifact is unsigned because no private release-signing secrets were
 | Media import and library | IMPLEMENTED | Document picker, persisted URI access/private-copy handling, metadata and thumbnails. Device/provider edge cases still need testing. |
 | Timeline editing | IMPLEMENTED | Tracks, gaps, trims, split, move/reorder, duplicate/delete, clip timing and speed calculations have code and unit coverage. |
 | Visual track composition | IMPLEMENTED / PARTIAL | Main visual sequence plus picture-in-picture overlay sequences. Arbitrary freeform positioning and transitions are not complete. |
-| Undo/redo | PARTIAL | Timeline snapshot history restores clip state. Photo Studio snapshot history now restores state for the same source URI across re-selection; commit b699fd7 failed compilation and the follow-up visibility/persistence repair is awaiting CI. Other non-photo edit history is not implemented. |
+| Undo/redo | PARTIAL | Timeline snapshot history restores clip state. Photo Studio now scopes history, redo-branch deletion, undo, redo, and cleanup to the exact selected source URI; this fixes cross-image history leakage. Source-scoped changes through `c56f6cf` have not yet had CI evidence retrieved. Other non-photo non-timeline edit history is not state-restoring. |
 | Audio editing | IMPLEMENTED | Concurrent audio tracks, volume and fade-in/fade-out via Media3 gain processing. Physical audio-sync validation remains. |
 | Photo editing | IMPLEMENTED | Crop, filters, exposure/tone controls, highlights, shadows and sharpness with pixel-level unit tests. The unsharp-mask calculation and dimension overflow were corrected in #245. |
 | Video effects | PARTIAL | Rotation, speed and color filters are present. Per-clip fade-in/fade-out is now implemented in the shared preview/export compositor path; cross-dissolve between adjacent clips remains unsupported. CI for this change is pending. |
@@ -44,6 +44,14 @@ The release artifact is unsigned because no private release-signing secrets were
 | Release packaging | CI-VERIFIED, UNSIGNED | Debug and unsigned release APK artifacts build and validate. A production keystore and signed-release verification are still required. |
 
 ## 3. Recent code changes
+
+- `36036ab`: added exact encoded-URI prefix predicates and source-specific Room DAO queries for photo history.
+- `a9a956f`: routed photo snapshot recording, loading, undo, redo, and clearing through source-specific DAO operations.
+- `6286280`: bound Photo Studio history observation and buttons to the selected image URI.
+- `3911730`: centralized deterministic source URI token encoding.
+- `52a20f7`: added tests for distinct URI tokens and the exact SQL prefix predicate.
+- `c56f6cf`: stabilized the selected-source Flow key using a captured immutable URI value.
+
 
 - #244 cb12671: fixed WorkManager cancellation cleanup without reading unavailable WorkInfo.inputData; added ownership/path-safety tests for export request cleanup.
 - #245 57eda58: corrected the four-neighbour unsharp-mask calculation; added uniform-region, exact-edge and pixel-count overflow tests.
@@ -72,4 +80,7 @@ The earlier instruction incorrectly included #174, #177 and #178 among cancelled
 
 ## 6. Next action
 
-Commit b699fd7 failed in Kotlin compilation because three public repository methods exposed internal PhotoEditSnapshot. The follow-up repair makes those APIs internal and preserves same-source photo history across app restarts. Verify the new CI run; if it fails, inspect the exact compiler/test error, fix it, commit, and retry.
+1. Inspect the newest GitHub Actions runs for commits `36036ab` through `c56f6cf`. The GitHub connector available in this session does not expose push-triggered run listings, so CI status remains unverified; do not infer success from empty commit-status responses.
+2. If CI fails, inspect the failed job logs, fix the root cause, commit the repair, and verify the retry.
+3. Once the source-scoped history changes pass CI, continue with a real cross-dissolve between adjacent clips. Keep preview and export behavior identical and add deterministic opacity/composition tests.
+4. Physical-device checks remain required for Room persistence, image switching, undo/redo, preview/export synchronization, audio, and process-death recovery.
