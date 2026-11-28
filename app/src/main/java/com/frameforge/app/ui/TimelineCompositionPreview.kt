@@ -30,6 +30,7 @@ import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Brightness
 import androidx.media3.effect.FrameDropEffect
+import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.Contrast
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
@@ -84,7 +85,13 @@ fun TimelineCompositionPreview(
         runCatching { buildTimelineComposition(clips) }
     }
     val composition: MediaComposition? = compositionResult.getOrNull()
-    val player = remember(context) { CompositionPlayer.Builder(context).build() }
+    // The timeline composes independent visual sequences for overlay lanes (and transitions).
+    // CompositionPlayer defaults to a single-input graph, which silently cannot render that layout.
+    val player = remember(context) {
+        CompositionPlayer.Builder(context)
+            .setVideoGraphFactory(MultipleInputVideoGraph.Factory())
+            .build()
+    }
     var exportWorkId by rememberSaveable { mutableStateOf<String?>(null) }
     var exportStartError by remember { mutableStateOf<String?>(null) }
     var isQueueingExport by remember { mutableStateOf(false) }
