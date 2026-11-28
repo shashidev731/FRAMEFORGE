@@ -61,9 +61,10 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
     var showOriginal by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Choose a photo to start editing.") }
     var exportBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val photoHistoryFlow = remember(projectId, sourceUriText, editHistoryRepository) {
-        if (projectId != null && sourceUriText != null && editHistoryRepository != null) {
-            editHistoryRepository.photoHistory(projectId, sourceUriText)
+    val selectedSourceUri = sourceUriText
+    val photoHistoryFlow = remember(projectId, selectedSourceUri, editHistoryRepository) {
+        if (projectId != null && selectedSourceUri != null && editHistoryRepository != null) {
+            editHistoryRepository.photoHistory(projectId, selectedSourceUri)
         } else {
             flowOf(emptyList())
         }
