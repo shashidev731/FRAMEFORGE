@@ -46,6 +46,7 @@ import com.frameforge.app.data.normalizedClipTrimEndMs
 import com.frameforge.app.data.normalizedClipAudioVolume
 import com.frameforge.app.data.effectiveClipDurationMs
 import com.frameforge.app.data.isTimelinePositionInsideClip
+import com.frameforge.app.data.isVisualTimelineClip
 import com.frameforge.app.data.sourceTimeAtTimelinePositionMs
 import com.frameforge.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -383,6 +384,36 @@ fun ProjectTimelinePanel(projectId: String, media: List<MediaEntity>, repository
                                 )
                             }
                         }
+                    }
+
+                    if (isVisualTimelineClip(selectedClip) && effectiveClipDurationMs(selectedClip) > 0L) {
+                        val transitionRangeMs = effectiveClipDurationMs(selectedClip).coerceAtMost(10_000L).toFloat()
+                        var videoFadeInDraft by remember(selectedClip.clipId, selectedClip.videoFadeInMs) {
+                            mutableFloatStateOf(selectedClip.videoFadeInMs.toFloat().coerceIn(0f, transitionRangeMs))
+                        }
+                        var videoFadeOutDraft by remember(selectedClip.clipId, selectedClip.videoFadeOutMs) {
+                            mutableFloatStateOf(selectedClip.videoFadeOutMs.toFloat().coerceIn(0f, transitionRangeMs))
+                        }
+                        Text("Video fade-in • ${formatTimelineDuration(videoFadeInDraft.toLong())}",
+                            color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Slider(value = videoFadeInDraft, onValueChange = { videoFadeInDraft = it },
+                            valueRange = 0f..transitionRangeMs, steps = 9)
+                        Text("Video fade-out • ${formatTimelineDuration(videoFadeOutDraft.toLong())}",
+                            color = SurfaceWhite, style = MaterialTheme.typography.labelMedium)
+                        Slider(value = videoFadeOutDraft, onValueChange = { videoFadeOutDraft = it },
+                            valueRange = 0f..transitionRangeMs, steps = 9)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Main-track fades reveal black; overlay fades reveal lower layers.",
+                                color = SurfaceWhite.copy(alpha = .65f), modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.labelSmall)
+                            OutlinedButton(
+                                onClick = { scope.launch { repository.setVideoFades(selectedClip.clipId, videoFadeInDraft.toLong(), videoFadeOutDraft.toLong()) } },
+                                enabled = videoFadeInDraft.toLong() != selectedClip.videoFadeInMs ||
+                                    videoFadeOutDraft.toLong() != selectedClip.videoFadeOutMs
+                            ) { Text("Apply fades") }
+                        }
+                        Text("Fade curves are shared by live composition preview and MP4 export. Overlapping fades are proportionally shortened.",
+                            color = SurfaceWhite.copy(alpha = .65f), style = MaterialTheme.typography.labelSmall)
                     }
 
                     if (selectedClip.mimeType.startsWith("video/") || selectedClip.mimeType.startsWith("image/")) {

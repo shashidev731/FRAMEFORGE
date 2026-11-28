@@ -8,6 +8,7 @@ import androidx.media3.effect.StaticOverlaySettings
 import com.frameforge.app.data.TimelineTrackGroup
 import com.frameforge.app.data.effectiveClipDurationMs
 import com.frameforge.app.data.saturatingTimelineEndMs
+import com.frameforge.app.data.timelineClipVideoOpacity
 
 internal data class TimelineOverlayPlacement(
     val scaleX: Float,
@@ -59,7 +60,9 @@ internal class TimelineVideoCompositorSettings(
                 positionMs < saturatingTimelineEndMs(clip.timelineStartMs, durationMs)
         }
         val isBaseInput = inputId == baseInputId
-        val alpha = if (!isBaseInput && activeClip == null) 0f else 1f
+        // Primary-track fades reveal the compositor's black canvas; overlay fades reveal lower layers.
+        val alpha = activeClip?.let { timelineClipVideoOpacity(it, positionMs) }
+            ?: if (isBaseInput) 1f else 0f
         val builder = StaticOverlaySettings.Builder().setAlphaScale(alpha)
         if (!isBaseInput) {
             timelineOverlayPlacement(inputId - baseInputId - 1)?.let { placement ->

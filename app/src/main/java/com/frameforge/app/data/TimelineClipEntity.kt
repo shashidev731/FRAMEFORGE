@@ -29,5 +29,7 @@ data class TimelineClipEntity(
     @ColumnInfo(defaultValue = "'NONE'") val filterEffect: String = "NONE",
     @ColumnInfo(defaultValue = "0") val rotationDegrees: Int = 0,
     @ColumnInfo(defaultValue = "''") val textOverlay: String = "",
+    @ColumnInfo(defaultValue = "0") val videoFadeInMs: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val videoFadeOutMs: Long = 0L,
     val createdAt: Long
 )

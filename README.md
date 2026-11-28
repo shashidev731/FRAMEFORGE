@@ -17,6 +17,7 @@ Package: `com.frameforge.app`
 - **Visual Filters & Effects**: Built-in shaders for B&W (grayscale), Invert, High Contrast, Brightness boost, Warmth, Cool, and Sepia.
 - **Rotation**: Rotate clips 90°, 180°, or 270° with hardware-accelerated transformation.
 - **Subtitles & Text Overlays**: Per-clip text captions rendered in real-time preview and baked into the final export via Media3 `TextOverlay`.
+- **Video fades**: Per-clip fade-in/fade-out alpha curves are applied by the shared video compositor in both preview and export. Main-track fades reveal black; overlay-track fades reveal lower visual layers. This is not a cross-dissolve between two clips.
 - **Persistent Undo & Redo**: Transactional snapshot history stored in SQLite Room via `TimelineSnapshotCodec (TSH3)`.
 
 ### 🔊 Audio Editing & Mixing
@@ -60,7 +61,7 @@ Package: `com.frameforge.app`
 - **Language**: Kotlin 2.0.21
 - **UI Framework**: Jetpack Compose (BOM 2024.12.01) + Material 3
 - **Media Engine**: AndroidX Media3 1.9.0 (Transformer, Effect, UI, Common)
-- **Database**: Room 2.6.1 (Schema v11 with migrations 1 through 11)
+- **Database**: Room 2.6.1 (Schema v12 with migrations 1 through 12)
 - **Build System**: Gradle 8.11.1 + AGP 8.10.1
 
 ---

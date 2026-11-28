@@ -10,13 +10,13 @@ This roadmap distinguishes implemented code from CI and physical-device verifica
 - [x] Timeline snapshot undo/redo with Room persistence and legacy snapshot decoding.
 - [x] Concurrent audio tracks, volume and fade-in/fade-out.
 - [x] Photo crop, filters and tone adjustments, including highlights, shadows and sharpness.
-- [x] Video rotation, speed, color filters and text overlays.
+- [x] Video rotation, speed, color filters, text overlays, and per-clip fade-in/fade-out curves shared by preview and export.
 - [x] Media3 Transformer export and WorkManager-based background export with progress, cancellation and retry input.
 - [x] CI debug/release APK builds, lint, unit tests and APK validation (latest fully verified run #246).
 
 ## Incomplete or partially implemented
 
-- [ ] Real video transitions. Fade-through-black/crossfade must affect both preview and export.
+- [ ] Cross-dissolve between adjacent clips. Per-clip fade-in/out now affects both preview and export; cross-dissolve remains unsupported and must not be represented as implemented.
 - [ ] Arbitrary visual overlay positioning, scaling and layer controls.
 - [ ] State-restoring undo/redo for non-timeline/photo editing operations.
 - [ ] Physical-device validation of preview/export synchronization, audio mix, recovery and codec compatibility.

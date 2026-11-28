@@ -3,8 +3,8 @@
 - **Application:** FRAMEFORGE (com.frameforge.app)
 - **Repository:** https://github.com/shashidev731/FRAMEFORGE
 - **Branch:** main
-- **Last fully CI-verified code baseline:** e874fa5ca41e0251d2738484fab661e877a4ad83 (CI run #246, success)
-- **Current update:** Adds a project-wide legacy audio-track allocation fix and this checkpoint/roadmap refresh. CI for the commit containing this update must be checked before it is marked verified.
+- **Last fully CI-verified code baseline:** 6ad996e31dffab1c4fb0631ccf571559846fbaff (CI run #247, success)
+- **Current update:** Adds persisted per-clip video fade-in/fade-out controls and a shared compositor alpha curve for preview/export. The new code and schema migration require CI verification before being marked tested.
 - **Completion:** Not 100% complete. Code coverage, CI verification, and physical-device verification are tracked separately.
 
 ## 1. Latest verified CI and artifacts
@@ -36,7 +36,7 @@ The release artifact is unsigned because no private release-signing secrets were
 | Timeline undo/redo | IMPLEMENTED | Room-persisted before/after snapshots restore timeline clip state; codec supports TSH1–TSH3. General photo/edit history is not yet a full state-restoring undo engine. |
 | Audio editing | IMPLEMENTED | Concurrent audio tracks, volume and fade-in/fade-out via Media3 gain processing. Physical audio-sync validation remains. |
 | Photo editing | IMPLEMENTED | Crop, filters, exposure/tone controls, highlights, shadows and sharpness with pixel-level unit tests. The unsharp-mask calculation and dimension overflow were corrected in #245. |
-| Video effects | PARTIAL | Rotation, speed and color filters are present. Transition effects such as crossfade/fade-through-black are not implemented. |
+| Video effects | PARTIAL | Rotation, speed and color filters are present. Per-clip fade-in/fade-out is now implemented in the shared preview/export compositor path; cross-dissolve between adjacent clips remains unsupported. CI for this change is pending. |
 | Text and image overlays | PARTIAL | Text overlays and visual PIP layers are composed; richer layer controls and arbitrary placement remain. |
 | AI Studio | PARTIAL / HONESTLY LIMITED | Local luminance and frame-change heuristics only. No learned/generative provider is connected; speech-to-text/caption generation remains disabled. |
 | Export | IMPLEMENTED / CI-VERIFIED | Media3 Transformer, WorkManager background job, progress, cancellation, immutable retry request, error handling and APK validation. Physical export quality and recovery still need device testing. |
@@ -62,7 +62,7 @@ The earlier instruction incorrectly included #174, #177 and #178 among cancelled
 
 ## 5. Remaining work — do not mark complete
 
-1. Implement and test real video transitions (at minimum a genuine fade-through-black; do not present a fake crossfade).
+1. Verify the new per-clip video fade-in/fade-out implementation in CI, then validate fade rendering on a physical device. Cross-dissolve between adjacent clips remains a separate unsupported feature.
 2. Validate legacy Room migration on Android API 26–current devices/emulators, including the current track-0 audio allocation behavior.
 3. Complete state-restoring undo/redo for non-timeline/photo edits if those edits are retained as editable operations.
 4. Validate timeline preview/export synchronization, audio mixing, cancellation and process-death recovery on physical devices.
@@ -72,4 +72,4 @@ The earlier instruction incorrectly included #174, #177 and #178 among cancelled
 
 ## 6. Next action
 
-Inspect the CI run triggered by the current checkpoint commit. If it passes, continue with the first incomplete feature above. If it fails, inspect the exact failing job log, fix the root cause, commit the repair, and verify CI again.
+The per-clip fade implementation is committed on main; inspect its CI run. If it passes, continue with physical-device validation planning and state-restoring undo/redo for non-timeline edits. If it fails, inspect the exact failing job log, fix the root cause, commit the repair, and verify CI again.

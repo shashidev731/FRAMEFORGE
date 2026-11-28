@@ -40,6 +40,9 @@ interface TimelineClipDao {
     @Query("UPDATE timeline_clips SET audioVolume = :volume, audioFadeInMs = :fadeInMs, audioFadeOutMs = :fadeOutMs WHERE clipId = :clipId")
     suspend fun setAudioMix(clipId: String, volume: Float, fadeInMs: Long, fadeOutMs: Long)
 
+    @Query("UPDATE timeline_clips SET videoFadeInMs = :fadeInMs, videoFadeOutMs = :fadeOutMs WHERE clipId = :clipId")
+    suspend fun setVideoFades(clipId: String, fadeInMs: Long, fadeOutMs: Long)
+
     @Query("UPDATE timeline_clips SET speed = :speed WHERE clipId = :clipId")
     suspend fun setSpeed(clipId: String, speed: Float)
 

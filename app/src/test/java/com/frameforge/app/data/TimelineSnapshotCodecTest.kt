@@ -13,7 +13,9 @@ class TimelineSnapshotCodecTest {
         speed: Float = 1.0f,
         effect: String = "NONE",
         rotation: Int = 0,
-        textOverlay: String = ""
+        textOverlay: String = "",
+        videoFadeInMs: Long = 0L,
+        videoFadeOutMs: Long = 0L
     ) = TimelineClipEntity(
         clipId = id, projectId = "project", mediaUri = uri, displayName = "name|$id\n",
         mimeType = if (track == 1) "audio/mp3" else "video/mp4",
@@ -26,13 +28,15 @@ class TimelineSnapshotCodecTest {
         filterEffect = effect,
         rotationDegrees = rotation,
         textOverlay = textOverlay,
+        videoFadeInMs = videoFadeInMs,
+        videoFadeOutMs = videoFadeOutMs,
         createdAt = 1234L
     )
 
     @Test
     fun roundTripsEmptyAndPopulatedSnapshots() {
-        val before = listOf(clip("a", 0), clip("b", 1, 1, speed = 1.5f, effect = "BW", rotation = 90, textOverlay = "Sample"))
-        val after = listOf(clip("c", 0, 1, "content://with|pipe", speed = 0.5f, effect = "WARM", rotation = 180, textOverlay = "Title"))
+        val before = listOf(clip("a", 0, videoFadeInMs = 350L, videoFadeOutMs = 450L), clip("b", 1, 1, speed = 1.5f, effect = "BW", rotation = 90, textOverlay = "Sample"))
+        val after = listOf(clip("c", 0, 1, "content://with|pipe", speed = 0.5f, effect = "WARM", rotation = 180, textOverlay = "Title", videoFadeInMs = 700L, videoFadeOutMs = 900L))
         val decoded = TimelineSnapshotCodec.decode(TimelineSnapshotCodec.encode(before, after))
         assertEquals(before, decoded.before)
         assertEquals(after, decoded.after)
@@ -74,6 +78,21 @@ class TimelineSnapshotCodecTest {
         assertEquals("NONE", decoded.before.single().filterEffect)
         assertEquals(0, decoded.before.single().rotationDegrees)
         assertEquals("", decoded.before.single().textOverlay)
+    }
+
+    @Test
+    fun readsTsh3SnapshotsWithDefaultVideoFadeValues() {
+        val tsh3Line = listOf(
+            text("tsh3"), text("project"), text("content://tsh3"), text("tsh3 name"), text("video/mp4"),
+            "0", "0", "0", "", "1000", "0", "0", "1.0", "0", "0", "1.25",
+            text("BW"), "90", text("Caption"), "123"
+        ).joinToString("|")
+        val payload = "TSH3|${text(tsh3Line)}|${text(tsh3Line)}"
+        val decoded = TimelineSnapshotCodec.decode(payload)
+        assertEquals(1, decoded.before.size)
+        assertEquals(0L, decoded.before.single().videoFadeInMs)
+        assertEquals(0L, decoded.before.single().videoFadeOutMs)
+        assertEquals(123L, decoded.before.single().createdAt)
     }
 
     @Test

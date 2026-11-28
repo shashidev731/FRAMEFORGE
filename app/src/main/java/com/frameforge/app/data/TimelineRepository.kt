@@ -99,6 +99,14 @@ class TimelineRepository(
         }
     }
 
+    suspend fun setVideoFades(clipId: String, fadeInMs: Long, fadeOutMs: Long) {
+        val clip = dao.find(clipId) ?: return
+        if (!isVisualTimelineClip(clip)) return
+        val (fadeIn, fadeOut) = normalizedClipVideoFades(effectiveClipDurationMs(clip), fadeInMs, fadeOutMs)
+        if (fadeIn == clip.videoFadeInMs && fadeOut == clip.videoFadeOutMs) return
+        recordSnapshot(clip.projectId) { dao.setVideoFades(clipId, fadeIn, fadeOut) }
+    }
+
     suspend fun setSpeed(clipId: String, speed: Float) {
         val clip = dao.find(clipId) ?: return
         if (!clip.mimeType.startsWith("video/") && !clip.mimeType.startsWith("image/")) return
