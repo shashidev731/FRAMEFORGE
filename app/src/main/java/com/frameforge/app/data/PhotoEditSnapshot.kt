@@ -68,6 +68,12 @@ internal object PhotoEditSnapshotCodec {
     private fun parseFloat(value: String, default: Float, min: Float, max: Float): Float =
         value.toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(min, max) ?: default
 
+    /** Base64 token used by Room to match the exact source URI at the start of a PHS1 payload. */
+    fun sourceUriToken(sourceUri: String): String {
+        require(sourceUri.isNotBlank()) { "A source URI is required" }
+        return encodeText(sourceUri)
+    }
+
     private fun encodeText(value: String): String =
         Base64.getEncoder().encodeToString(value.toByteArray(StandardCharsets.UTF_8))
 
