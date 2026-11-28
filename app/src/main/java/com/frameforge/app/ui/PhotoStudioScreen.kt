@@ -61,13 +61,18 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
     var showOriginal by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Choose a photo to start editing.") }
     var exportBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val photoHistoryFlow = remember(projectId, editHistoryRepository) {
-        if (projectId != null && editHistoryRepository != null) editHistoryRepository.photoHistory(projectId)
-        else flowOf(emptyList())
+    val photoHistoryFlow = remember(projectId, sourceUriText, editHistoryRepository) {
+        if (projectId != null && sourceUriText != null && editHistoryRepository != null) {
+            editHistoryRepository.photoHistory(projectId, sourceUriText)
+        } else {
+            flowOf(emptyList())
+        }
     }
     val photoHistory by photoHistoryFlow.collectAsState(initial = emptyList())
-    val canUndoPhoto = projectId != null && editHistoryRepository != null && photoHistory.count { it.isApplied } > 1
-    val canRedoPhoto = projectId != null && editHistoryRepository != null && photoHistory.any { !it.isApplied }
+    val canUndoPhoto = projectId != null && sourceUriText != null &&
+        editHistoryRepository != null && photoHistory.count { it.isApplied } > 1
+    val canRedoPhoto = projectId != null && sourceUriText != null &&
+        editHistoryRepository != null && photoHistory.any { !it.isApplied }
 
     fun currentPhotoSnapshot(): PhotoEditSnapshot? {
         val uri = sourceUriText ?: return null
@@ -205,11 +210,21 @@ fun PhotoStudioScreen(modifier: Modifier = Modifier, projectId: String? = null, 
                 Text(sourceName, modifier = Modifier.weight(1f), color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 if (projectId != null && editHistoryRepository != null) {
                     TextButton(
-                        onClick = { scope.launch { editHistoryRepository.undoPhoto(projectId)?.let(::applyPhotoSnapshot) } },
+                        onClick = {
+                            val sourceUri = sourceUriText
+                            if (sourceUri != null) scope.launch {
+                                editHistoryRepository.undoPhoto(projectId, sourceUri)?.let(::applyPhotoSnapshot)
+                            }
+                        },
                         enabled = canUndoPhoto
                     ) { Icon(Icons.Default.Undo, null); Text("Undo") }
                     TextButton(
-                        onClick = { scope.launch { editHistoryRepository.redoPhoto(projectId)?.let(::applyPhotoSnapshot) } },
+                        onClick = {
+                            val sourceUri = sourceUriText
+                            if (sourceUri != null) scope.launch {
+                                editHistoryRepository.redoPhoto(projectId, sourceUri)?.let(::applyPhotoSnapshot)
+                            }
+                        },
                         enabled = canRedoPhoto
                     ) { Icon(Icons.Default.Redo, null); Text("Redo") }
                 }
